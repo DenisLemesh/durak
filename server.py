@@ -290,6 +290,30 @@ async def do_act(pid, g: Game, d):
         g.state = 'defense'
         await g.push()
 
+    elif act == 'atk_all':
+        if pid == g.dfr: return
+        if g.state not in ('attack', 'defense'): return
+        if g.state == 'defense' and g.mode != 'podkidnoy': return
+        rank = d.get('rank')
+        if not rank or rank not in {c['r'] for c in g.hands.get(pid, [])}: return
+        if g.table:
+            table_ranks = {p['atk']['r'] for p in g.table} | {p['def']['r'] for p in g.table if p.get('def')}
+            if rank not in table_ranks:
+                return await send(pid, {'type': 'err', 'msg': 'Ранг не совпадает'})
+        elif g.state != 'attack':
+            return
+        defended = sum(1 for p in g.table if p.get('def'))
+        def_had = len(g.hands[g.dfr]) + defended
+        max_add = min(6, def_had) - len(g.table)
+        if max_add <= 0:
+            return await send(pid, {'type': 'err', 'msg': 'У защитника мало карт'})
+        cards = [c for c in g.hands[pid] if c['r'] == rank][:max_add]
+        for card in cards:
+            g.table.append({'atk': card, 'def': None})
+            g.hands[pid].remove(card)
+        g.state = 'defense'
+        await g.push()
+
     elif act == 'def':
         if pid != g.dfr or g.state != 'defense': return
         pi = d.get('pi', -1)

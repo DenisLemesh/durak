@@ -796,8 +796,12 @@ function onMCardClick(cid, g) {
     multiSel=cid; renderMTable(g); renderMHand(g); renderMFab(g);
     setSt('Тапни карту соперника на столе');
   } else {
-    if (multiSel===cid) { wsSend({type:'act',act:'atk',cid}); multiSel=null; }
-    else { multiSel=cid; renderMHand(g); renderMFab(g); }
+    if (multiSel===cid) {
+      const me=g.players.find(p=>p.id===myPid);
+      const card=me?.hand?.find(c=>c.id===cid);
+      wsSend(card?{type:'act',act:'atk_all',rank:card.r}:{type:'act',act:'atk',cid});
+      multiSel=null;
+    } else { multiSel=cid; renderMHand(g); renderMFab(g); }
   }
 }
 function mDefend(idx) {
@@ -939,15 +943,18 @@ function bDefend(idx){
 
 function bAttack(id){
   const card=G.p.hand.find(c=>c.id===id); if(!card)return;
+  const defended=G.table.filter(p=>p.def).length;
+  const defHad=G.o.hand.length+defended;
+  const maxAdd=Math.min(6,defHad)-G.table.length;
   if(G.table.length>0){
     const rks=new Set(); G.table.forEach(p=>{rks.add(p.atk.r);if(p.def)rks.add(p.def.r);});
     if(!rks.has(card.r)){setSt('Ранг не совпадает');shakeHand();return;}
-    // ИСПРАВЛЕНИЕ: учитываем карты уже использованные для защиты
-    const defended=G.table.filter(p=>p.def).length;
-    const defHad=G.o.hand.length+defended;
-    if(G.table.length>=Math.min(6,defHad)){setSt('У бота мало карт');return;}
+    if(maxAdd<=0){setSt('У бота мало карт');return;}
   }
-  G.table.push({atk:card,def:null}); G.p.hand=G.p.hand.filter(c=>c.id!==id);
+  const sameRank=G.p.hand.filter(c=>c.r===card.r).slice(0,Math.max(1,maxAdd));
+  const thrown=new Set(sameRank.map(c=>c.id));
+  sameRank.forEach(c=>G.table.push({atk:c,def:null}));
+  G.p.hand=G.p.hand.filter(c=>!thrown.has(c.id));
   G.sel=null; G.state='wait_ai_def';
   renderBA(); popCard(); setSt('🛡 Бот защищается...'); setTimeout(aiBotDefend,900);
 }
