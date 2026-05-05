@@ -308,8 +308,6 @@ async def do_act(pid, g: Game, d):
 
     elif act == 'transfer':
         if g.mode != 'perevodoy' or pid != g.dfr or g.state != 'defense': return
-        if len(g.pids) < 3:
-            return await send(pid, {'type': 'err', 'msg': 'Перевод — только 3+ игроков'})
         if any(p.get('def') for p in g.table): return
         card = find_card(g.hands[pid], d.get('cid'))
         if not card: return

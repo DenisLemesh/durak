@@ -263,6 +263,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="tab-panel active" id="tab-tournaments">
       <div class="logo">♠ ДУРАК</div>
       <div class="logo-sub">карточная игра</div>
+      <button class="mbtn ghost" id="btnReturnGame" style="display:none;background:rgba(240,180,41,.15);border:1.5px solid #f0b429;color:#f0b429">▶ Вернуться в игру</button>
       <button class="mbtn gold" id="btnPlay">Играть с ботом</button>
       <button class="mbtn ghost" id="btnMulti">🌐 Мультиплеер</button>
       <button class="mbtn ghost" id="btnRules" style="width:160px;font-size:11px">Правила</button>
@@ -512,6 +513,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- Выбор режима бота -->
+<div class="name-edit-overlay off" id="botModeOverlay">
+  <div class="name-edit-box">
+    <h3>Режим игры с ботом</h3>
+    <div class="mode-btns" id="botModeBtns" style="margin-bottom:4px">
+      <button class="mode-btn active" data-mode="podkidnoy">♠ Подкидной<br><span style="font-size:10px;font-weight:400;opacity:.7">Можно подкидывать</span></button>
+      <button class="mode-btn" data-mode="perevodoy">⇄ Переводной<br><span style="font-size:10px;font-weight:400;opacity:.7">Можно переводить</span></button>
+    </div>
+    <div class="name-edit-row" style="margin-top:14px">
+      <button class="mbtn ghost sm" style="flex:1" id="botModeCancel">Отмена</button>
+      <button class="mbtn gold sm" style="flex:1" id="botModeStart">▶ Играть</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- #app -->
 <script>
 // ─── TELEGRAM ────────────────────────────────────────
@@ -618,7 +634,7 @@ function onWSMsg(d) {
       setSt('⚠ '+d.msg);
       break;
     case 'chat_msg':
-      addChatMsg(d.name||'Игрок', d.text, d.pid===myPid);
+      if (d.pid !== myPid) addChatMsg(d.name||'Игрок', d.text, false);
       break;
     case 'stats':
       profileStats.games=d.games||0; profileStats.wins=d.wins||0;
@@ -765,7 +781,7 @@ function renderMFab(g) {
   } else if (g.state==='defense') {
     if (isDfr) {
       mk('take','Беру',()=>{wsSend({type:'act',act:'take'});multiSel=null;});
-      if (g.mode==='perevodoy'&&g.players.length>=3&&!g.table.some(p=>p.def))
+      if (g.mode==='perevodoy'&&!g.table.some(p=>p.def))
         mk('transfer','⇄ Перевести',mTransfer);
       $('hint').textContent=multiSel?'Тапни атакующую карту на столе':'Выбери карту из руки → тапни на столе';
     } else {
@@ -814,9 +830,9 @@ let G=null;
 function mkDeck(){const d=[];for(const s of SUITS)for(const r of RANKS)d.push({r,s,id:r+s});return d;}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
 
-function startBotGame(){
+function startBotGame(mode='podkidnoy'){
   const deck=shuf(mkDeck()), trump=deck[deck.length-1].s;
-  G={trump,trumpCard:deck[deck.length-1],deck:deck.slice(12),
+  G={trump,trumpCard:deck[deck.length-1],deck:deck.slice(12),mode:mode,
      p:{hand:deck.slice(0,6),atk:true},o:{hand:deck.slice(6,12),atk:false},
      table:[],sel:null,state:'my_attack',over:false};
   multiGame=null; multiSel=null;
@@ -891,7 +907,11 @@ function rBFab(){
     case 'my_defense':{
       const all=G.table.length>0&&G.table.every(p=>p.def);
       if(all){mk('ok','Готово ✓',bConfirm);$('hint').textContent='Все карты отбиты!';}
-      else{mk('take','Беру',bTake);$('hint').textContent=G.sel?'Тапни атакующую карту на столе':'Выбери карту → тапни на столе';}
+      else{
+        mk('take','Беру',bTake);
+        if(G.mode==='perevodoy'&&!G.table.some(p=>p.def))mk('transfer','⇄ Перевести',bTransfer);
+        $('hint').textContent=G.sel?'Тапни атакующую карту на столе':'Выбери карту → тапни на столе';
+      }
       break;}
     default: $('hint').textContent=G.state==='ai_attack'?'Соперник атакует...':'';
   }
@@ -940,6 +960,19 @@ function bTake(){
   if(G.state!=='my_defense')return;
   $('pairs').querySelectorAll('.pair').forEach((el,i)=>setTimeout(()=>{el.style.transition='transform .3s,opacity .3s';el.style.transform='translateY(60px) scale(.75)';el.style.opacity='0';},i*50));
   setTimeout(()=>{G.table.forEach(p=>{G.p.hand.push(p.atk);if(p.def)G.p.hand.push(p.def);});G.table=[];G.sel=null;bRound(false);},480);
+}
+function bTransfer(){
+  if(!G||G.mode!=='perevodoy'||G.state!=='my_defense')return;
+  if(!G.sel){setSt('Выберите карту для перевода');return;}
+  const card=G.p.hand.find(c=>c.id===G.sel);
+  if(!card){G.sel=null;rBHand();return;}
+  const firstRank=G.table[0]?.atk.r;
+  if(!firstRank||card.r!==firstRank||!G.table.every(p=>p.atk.r===firstRank)){setSt('Ранг должен совпадать с атакующими картами');shakeHand();return;}
+  G.table.push({atk:card,def:null});
+  G.p.hand=G.p.hand.filter(c=>c.id!==G.sel); G.sel=null;
+  G.p.atk=true; G.o.atk=false; G.state='wait_ai_def';
+  renderBA(); popCard(); setSt('⇄ Перевод! Бот защищается...');
+  setTimeout(aiBotDefend,900);
 }
 function bConfirm(){
   if(G.state!=='my_defense')return;
@@ -993,6 +1026,19 @@ function aiAtkOne(){
 }
 function aiBotDefend(){
   if(!G||G.over||G.state!=='wait_ai_def')return;
+  if(G.mode==='perevodoy'&&!G.table.some(p=>p.def)){
+    const firstRank=G.table[0]?.atk.r;
+    if(firstRank&&G.table.every(p=>p.atk.r===firstRank)){
+      const tc=G.o.hand.find(c=>c.r===firstRank);
+      if(tc&&Math.random()>0.4){
+        G.table.push({atk:tc,def:null});
+        G.o.hand=G.o.hand.filter(c=>c.id!==tc.id);
+        G.p.atk=false; G.o.atk=true; G.state='my_defense';
+        renderBA(); popCard(); setSt('⇄ Бот переводит! Ваш ход защищаться...');
+        return;
+      }
+    }
+  }
   let took=false;
   for(const pair of G.table){
     if(pair.def)continue;
@@ -1013,7 +1059,17 @@ function aiAddOrEnd(){
 }
 
 // ─── НАВИГАЦИЯ ────────────────────────────────────────
-$('btnPlay').onclick=startBotGame;
+let selectedBotMode='podkidnoy';
+$('btnPlay').onclick=()=>$('botModeOverlay').classList.remove('off');
+$('botModeBtns').querySelectorAll('.mode-btn').forEach(b=>{
+  b.onclick=()=>{selectedBotMode=b.dataset.mode;$('botModeBtns').querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');};
+});
+$('botModeCancel').onclick=()=>$('botModeOverlay').classList.add('off');
+$('botModeStart').onclick=()=>{$('botModeOverlay').classList.add('off');startBotGame(selectedBotMode);};
+$('btnReturnGame').onclick=()=>{
+  if(G&&!G.over){showScreen('game');renderBA();return;}
+  if(multiGame&&multiGame.state!=='finished'){showScreen('game');return;}
+};
 $('btnMulti').onclick=()=>{ if(!ws||ws.readyState!==1) connectWS(); showScreen('lobby'); };
 $('btnRules').onclick=()=>alert('♠ Правила Дурака:\n\n1. Тапни карту — поднимется\n2. Тапни ещё раз — атака\n3. Защитник: выбери карту → тапни на столе\n\nОтбить: та же масть, карта старше или козырем.\n\nПереводной: положи карту того же ранга — перевод следующему игроку (3+ игрока).');
 $('btnLobbyBack').onclick=()=>showScreen('menu');
@@ -1070,6 +1126,8 @@ function goHome() {
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelector('.nav-item[data-tab="tournaments"]').classList.add('active');
   $('tab-tournaments').classList.add('active');
+  const inGame=(G&&!G.over)||(multiGame&&multiGame.state!=='finished');
+  $('btnReturnGame').style.display=inGame?'':'none';
 }
 $('btnHomeMenu').onclick = goHome;
 $('btnHomeGame').onclick = goHome;
