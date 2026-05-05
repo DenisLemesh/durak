@@ -694,8 +694,8 @@ $('betSlider').oninput=function(){ createBet=this.value*500; $('betValue').textC
 $('maxPlayersBtns').querySelectorAll('.pnum-btn').forEach(b=>{
   b.onclick=()=>{ createMaxP=+b.dataset.n; $('maxPlayersBtns').querySelectorAll('.pnum-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
 });
-document.querySelectorAll('.mode-btn').forEach(b=>{
-  b.onclick=()=>{ createMode=b.dataset.mode; document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
+document.querySelectorAll('#create-screen .mode-btn').forEach(b=>{
+  b.onclick=()=>{ createMode=b.dataset.mode; document.querySelectorAll('#create-screen .mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
 });
 
 $('btnConfirmCreate').onclick=()=>{
@@ -785,8 +785,7 @@ function renderMFab(g) {
         mk('transfer','⇄ Перевести',mTransfer);
       $('hint').textContent=multiSel?'Тапни атакующую карту на столе':'Выбери карту из руки → тапни на столе';
     } else {
-      if (isAtk) mk('end','Завершить ✓',()=>wsSend({type:'act',act:'done'}));
-      $('hint').textContent='Защитник отбивается...';
+      $('hint').textContent=isAtk?'Ожидайте — защитник отбивается...':'Защитник отбивается...';
     }
   }
 }
@@ -819,6 +818,7 @@ function showMultiResult(g) {
   $('resS').textContent=isDraw?'Оба вышли одновременно':isDurak?'Вы остались в дураках!':dName+' — дурак!';
   $('resCoins').textContent=me.coins!=null?'🪙 '+me.coins:'';
   if (me.coins!=null) setCoins(me.coins);
+  multiGame=null; curLobby=null; multiSel=null;
   $('btnAgain').onclick=()=>showScreen('lobby');
   $('btnMenu3').onclick=()=>showScreen('menu');
   showScreen('result');

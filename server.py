@@ -160,7 +160,7 @@ class Game:
 # ── WebSocket ──────────────────────────────────────────────────────────────
 def player_lobby(pid) -> Optional[Lobby]:
     for lb in lobbies.values():
-        if pid in lb.players: return lb
+        if pid in lb.players and lb.status != 'finished': return lb
     return None
 
 async def remove_from_lobby(pid, refund=False):
@@ -357,6 +357,7 @@ async def end_game(g: Game):
     _save(pdb)
     lb.status = 'finished'
     await g.push()
+    lobbies.pop(g.lobby_id, None)
 
 app.mount('/', StaticFiles(directory='frontend', html=True), name='static')
 
