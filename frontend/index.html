@@ -95,7 +95,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dc{position:absolute;width:56px;height:80px;background:linear-gradient(135deg,#1a4a6b,#0d2b42);border-radius:8px;border:1px solid rgba(255,255,255,.12)}
 .dc:nth-child(1){transform:translate(-2px,-2px) rotate(-2deg)}
 .dc:nth-child(2){transform:translate(-1px,-1px) rotate(-1deg)}
-.trump-mini{position:absolute;bottom:-20px;left:-8px;width:56px;height:80px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;transform:rotate(90deg);border:2px solid #f0b429}
+.trump-mini{position:absolute;bottom:-20px;left:-8px;width:58px;height:84px;transform:rotate(90deg);border:2px solid #f0b429;border-radius:9px;overflow:hidden}
 .deck-cnt{font-size:10px;color:rgba(255,255,255,.6);font-weight:600}
 .table-area{position:absolute;inset:0;bottom:118px;display:flex;align-items:center;justify-content:center;padding-right:64px}
 .pairs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;max-width:290px}
@@ -742,9 +742,7 @@ function renderMTop(g) {
 
 function renderMDeck(g) {
   $('deckCnt').textContent=g.deck_count;
-  $('trumpMini').textContent=g.trump_card.r+g.trump_card.s;
-  $('trumpMini').style.color=isRed(g.trump_card.s)?'#c0392b':'#1a1a1a';
-  $('trumpMini').style.display=g.deck_count>0?'flex':'none';
+  const tm1=$('trumpMini'); tm1.style.display=g.deck_count>0?'':'none'; tm1.innerHTML=''; tm1.appendChild(mkCardEl(g.trump_card,'',g.trump));
 }
 
 let prevMTable=[];
@@ -878,9 +876,7 @@ function rBTop(){
 
 function rBDeck(){
   $('deckCnt').textContent=G.deck.length;
-  $('trumpMini').textContent=G.trumpCard.r+G.trumpCard.s;
-  $('trumpMini').style.color=isRed(G.trumpCard.s)?'#c0392b':'#1a1a1a';
-  $('trumpMini').style.display=G.deck.length>0?'flex':'none';
+  const tm2=$('trumpMini'); tm2.style.display=G.deck.length>0?'':'none'; tm2.innerHTML=''; tm2.appendChild(mkCardEl(G.trumpCard,'',G.trump));
 }
 
 let prevBTable=[];
