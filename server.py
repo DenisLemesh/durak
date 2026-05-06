@@ -407,23 +407,60 @@ async def admin_users(key: str = Query(default='')):
     if not ADMIN_KEY or key != ADMIN_KEY:
         raise HTTPException(status_code=403, detail='Forbidden')
     users = get_all_users()
-    rows = ''.join(
-        f'<tr><td>{u["tg_id"]}</td><td>{u["username"] or "—"}</td>'
-        f'<td>{u["first_name"] or "—"} {u["last_name"] or ""}</td>'
-        f'<td>{u["games"]}</td><td>{u["wins"]}</td>'
-        f'<td>{u["joined_at"][:19]}</td><td>{u["last_seen"][:19]}</td></tr>'
-        for u in users
-    )
-    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>Пользователи</title>
-    <style>body{{font-family:sans-serif;padding:20px;background:#111;color:#eee}}
-    table{{border-collapse:collapse;width:100%}}
-    th,td{{border:1px solid #333;padding:8px 12px;text-align:left}}
-    th{{background:#222}}tr:hover{{background:#1a1a1a}}</style></head>
-    <body><h2>👥 Пользователи ({len(users)})</h2>
-    <table><tr><th>TG ID</th><th>Username</th><th>Имя</th>
-    <th>Игр</th><th>Побед</th><th>Зашёл</th><th>Был</th></tr>
-    {rows}</table></body></html>'''
+    online_pids = set(conns.keys())
+    online_count = sum(1 for u in users if f'tg_{u["tg_id"]}' in online_pids)
+
+    def row(u):
+        is_online = f'tg_{u["tg_id"]}' in online_pids
+        dot = '<span style="color:#4caf50;font-size:16px" title="Онлайн">●</span>' if is_online else '<span style="color:#555;font-size:16px" title="Оффлайн">●</span>'
+        bg = 'background:#0d2010;' if is_online else ''
+        name = f'{u["first_name"] or "—"} {u["last_name"] or ""}'.strip()
+        return (
+            f'<tr style="{bg}">'
+            f'<td>{dot}</td>'
+            f'<td>{u["tg_id"]}</td>'
+            f'<td>{u["username"] or "—"}</td>'
+            f'<td>{name}</td>'
+            f'<td>{u["games"]}</td>'
+            f'<td>{u["wins"]}</td>'
+            f'<td>{u["joined_at"][:16].replace("T"," ")}</td>'
+            f'<td>{u["last_seen"][:16].replace("T"," ")}</td>'
+            f'</tr>'
+        )
+
+    rows = ''.join(row(u) for u in users)
+    html = f'''<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<meta http-equiv="refresh" content="30">
+<title>Пользователи — Дурак</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0d0d0d;color:#e0e0e0;padding:24px}}
+  h2{{font-size:20px;margin-bottom:6px}}
+  .meta{{font-size:12px;color:#666;margin-bottom:20px}}
+  .badges{{display:flex;gap:16px;margin-bottom:20px}}
+  .badge{{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;padding:10px 20px;text-align:center}}
+  .badge-val{{font-size:26px;font-weight:700;color:#f0b429}}
+  .badge-lbl{{font-size:11px;color:#777;margin-top:2px}}
+  .badge.online .badge-val{{color:#4caf50}}
+  table{{border-collapse:collapse;width:100%;font-size:13px}}
+  th{{background:#181818;color:#999;font-weight:600;padding:10px 12px;text-align:left;border-bottom:1px solid #222;position:sticky;top:0}}
+  td{{padding:9px 12px;border-bottom:1px solid #1a1a1a;vertical-align:middle}}
+  tr:hover td{{background:#141414}}
+  .tag{{background:#1e2d1e;color:#4caf50;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600}}
+</style></head>
+<body>
+<h2>♠ Дурак — Панель администратора</h2>
+<div class="meta">Обновляется каждые 30 сек · {len(users)} пользователей в базе</div>
+<div class="badges">
+  <div class="badge online"><div class="badge-val">{online_count}</div><div class="badge-lbl">Онлайн сейчас</div></div>
+  <div class="badge"><div class="badge-val">{len(users)}</div><div class="badge-lbl">Всего игроков</div></div>
+</div>
+<table>
+  <tr><th>●</th><th>TG ID</th><th>Username</th><th>Имя</th><th>Игр</th><th>Побед</th><th>Зашёл</th><th>Был</th></tr>
+  {rows}
+</table>
+</body></html>'''
     return HTMLResponse(html)
 
 app.mount('/', StaticFiles(directory='frontend', html=True), name='static')
