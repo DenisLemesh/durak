@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
+from database import upsert_user, increment_stats
 
 app = FastAPI()
 
@@ -189,6 +190,12 @@ async def ws_ep(ws: WebSocket):
             if raw.get('name'): pdb[pid]['name'] = raw['name'][:20]
             if raw.get('photo'): pdb[pid]['photo_url'] = raw['photo']
         _save(pdb)
+        if pid.startswith('tg_'):
+            try:
+                tg_id = int(pid[3:])
+                upsert_user(tg_id=tg_id, first_name=raw.get('name'))
+            except ValueError:
+                pass
         await ws.send_text(json.dumps({'type': 'init_ok', 'pid': pid,
             'me': {'id': pid, **pdb[pid]},
             'lobbies': [l.info() for l in lobbies.values() if l.status == 'waiting']
@@ -373,11 +380,20 @@ async def end_game(g: Game):
             pdb[w]['coins'] += pot // len(winners)
             pdb[w].setdefault('games', 0); pdb[w]['games'] += 1
             pdb[w].setdefault('wins', 0);  pdb[w]['wins']  += 1
+            if w.startswith('tg_'):
+                try: increment_stats(int(w[3:]), won=True)
+                except ValueError: pass
         pdb[g.durak].setdefault('games', 0); pdb[g.durak]['games'] += 1
+        if g.durak.startswith('tg_'):
+            try: increment_stats(int(g.durak[3:]), won=False)
+            except ValueError: pass
     else:
         for p in g.all_pids:
             pdb[p]['coins'] += lb.bet
             pdb[p].setdefault('games', 0); pdb[p]['games'] += 1
+            if p.startswith('tg_'):
+                try: increment_stats(int(p[3:]), won=False)
+                except ValueError: pass
     _save(pdb)
     lb.status = 'finished'
     await g.push()

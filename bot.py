@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+from database import upsert_user
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -16,6 +18,14 @@ WEBAPP_URL = os.getenv("WEBAPP_URL")
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     name = user.first_name if user else "Игрок"
+
+    if user:
+        upsert_user(
+            tg_id=user.id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            username=user.username,
+        )
 
     keyboard = [[
         InlineKeyboardButton(
