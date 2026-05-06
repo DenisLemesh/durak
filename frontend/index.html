@@ -1161,7 +1161,9 @@ $('btnHomeMenu').onclick = goHome;
 $('btnHomeGame').onclick = goHome;
 function surrender(){
   if(!confirm('Сдаться? Вы проиграете этот матч.'))return;
-  if(G&&!G.over){
+  if(multiGame&&multiGame.state!=='finished'){
+    wsSend({type:'act',act:'surrender'});
+  } else if(G&&!G.over){
     const mode=G.mode; G.over=true;
     if(tg)tg.HapticFeedback?.notificationOccurred('error');
     $('resEm').textContent='🏳️'; $('resT').textContent='Дурак!'; $('resS').textContent='Вы сдались!'; $('resCoins').textContent='';

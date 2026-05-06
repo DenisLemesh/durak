@@ -371,6 +371,12 @@ async def do_act(pid, g: Game, d):
         await g.push()
         if g.state == 'finished': await end_game(g)
 
+    elif act == 'surrender':
+        if pid not in g.pids: return
+        g.durak = pid
+        g.state = 'finished'
+        await end_game(g)
+
 async def end_game(g: Game):
     lb = lobbies.get(g.lobby_id)
     if not lb: return
