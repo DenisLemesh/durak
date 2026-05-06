@@ -111,7 +111,7 @@ class Game:
     def refill(self):
         for pid in self.pids[self.ai:] + self.pids[:self.ai]:
             while len(self.hands[pid]) < 6 and self.deck:
-                self.hands[pid].append(self.deck.pop())
+                self.hands[pid].append(self.deck.pop(0))
 
     def check_end(self):
         if self.deck: return

@@ -988,7 +988,7 @@ function bRound(sw){
   if(G.p.atk){G.state='my_attack';renderBA();setSt('⚔ Ваш ход!');}
   else{G.state='ai_attack';renderBA();setSt('⏳ Соперник атакует...');setTimeout(aiTurn,1100);}
 }
-function bRefill(p){while(p.hand.length<6&&G.deck.length>0)p.hand.push(G.deck.pop());}
+function bRefill(p){while(p.hand.length<6&&G.deck.length>0)p.hand.push(G.deck.shift());}
 function bWin(){
   const gone=G.deck.length===0, pOut=gone&&G.p.hand.length===0, oOut=gone&&G.o.hand.length===0;
   if(!pOut&&!oOut)return false;
