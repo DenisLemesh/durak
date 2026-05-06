@@ -2,7 +2,7 @@
 server.py — FastAPI WebSocket сервер Дурак
 Запуск: python server.py
 """
-import json, os, random, uuid
+import json, os, random, string, uuid
 from typing import Dict, List, Optional
 
 import uvicorn
@@ -54,11 +54,18 @@ def get_friends_view(pid: str) -> list:
              'photo': pdb.get(f, {}).get('photo_url'), 'online': f in conns}
             for f in friends if f in pdb]
 
+def gen_game_id() -> str:
+    chars = string.ascii_uppercase + string.digits
+    existing = {pdb[p].get('game_id') for p in pdb}
+    while True:
+        gid = ''.join(random.choices(chars, k=8))
+        if gid not in existing:
+            return gid
+
 def find_pid_by_short(short_id: str) -> Optional[str]:
     short = short_id.upper()
     for p in pdb:
-        display = p.replace('tg_', '')[:8].upper()
-        if display == short:
+        if pdb[p].get('game_id', '').upper() == short:
             return p
     return None
 
@@ -200,8 +207,11 @@ async def ws_ep(ws: WebSocket):
         conns[pid] = ws
         if pid not in pdb:
             pdb[pid] = {'name': raw.get('name', 'Игрок')[:20], 'coins': INITIAL_COINS,
-                        'photo_url': raw.get('photo'), 'games': 0, 'wins': 0}
+                        'photo_url': raw.get('photo'), 'games': 0, 'wins': 0,
+                        'game_id': gen_game_id()}
         else:
+            if 'game_id' not in pdb[pid]:
+                pdb[pid]['game_id'] = gen_game_id()
             if raw.get('name'): pdb[pid]['name'] = raw['name'][:20]
             if raw.get('photo'): pdb[pid]['photo_url'] = raw['photo']
         _save(pdb)

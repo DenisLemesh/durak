@@ -667,6 +667,7 @@ function onWSMsg(d) {
     case 'init_ok':
       myPid=d.pid; setCoins(d.me.coins);
       localStorage.setItem('durak_name', d.me.name||'');
+      localStorage.setItem('durak_game_id', d.me.game_id||'');
       profileStats.games=d.me.games||0; profileStats.wins=d.me.wins||0;
       myFriends=d.friends||[]; updateFriendsBadge();
       renderLobbyList(d.lobbies||[]);
@@ -1164,11 +1165,8 @@ function updateProfileBtn(){
 function openProfile(){
   const name = tgUser?.first_name || localStorage.getItem('durak_name') || 'Игрок';
   const photo = tgUser?.photo_url;
-  const pid = myPid || getPid();
-  const shortId = pid.replace('tg_','').replace('u_','').substring(0,8).toUpperCase();
-
   $('pmName').textContent = name;
-  $('pmIdVal').textContent = shortId;
+  $('pmIdVal').textContent = localStorage.getItem('durak_game_id') || '—';
   $('pmCoinsProfile').textContent = myCoins;
   $('pmGames').textContent = profileStats.games;
   $('pmWinPct').textContent = profileStats.games ? Math.round(profileStats.wins/profileStats.games*100)+'%' : '0%';
