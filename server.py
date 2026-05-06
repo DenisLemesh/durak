@@ -6,9 +6,10 @@ import json, os, random, uuid
 from typing import Dict, List, Optional
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from database import upsert_user, increment_stats
+from database import upsert_user, increment_stats, get_all_users
 
 app = FastAPI()
 
@@ -398,6 +399,32 @@ async def end_game(g: Game):
     lb.status = 'finished'
     await g.push()
     lobbies.pop(g.lobby_id, None)
+
+ADMIN_KEY = os.getenv('ADMIN_KEY', '')
+
+@app.get('/admin/users', response_class=HTMLResponse)
+async def admin_users(key: str = Query(default='')):
+    if not ADMIN_KEY or key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail='Forbidden')
+    users = get_all_users()
+    rows = ''.join(
+        f'<tr><td>{u["tg_id"]}</td><td>{u["username"] or "—"}</td>'
+        f'<td>{u["first_name"] or "—"} {u["last_name"] or ""}</td>'
+        f'<td>{u["games"]}</td><td>{u["wins"]}</td>'
+        f'<td>{u["joined_at"][:19]}</td><td>{u["last_seen"][:19]}</td></tr>'
+        for u in users
+    )
+    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Пользователи</title>
+    <style>body{{font-family:sans-serif;padding:20px;background:#111;color:#eee}}
+    table{{border-collapse:collapse;width:100%}}
+    th,td{{border:1px solid #333;padding:8px 12px;text-align:left}}
+    th{{background:#222}}tr:hover{{background:#1a1a1a}}</style></head>
+    <body><h2>👥 Пользователи ({len(users)})</h2>
+    <table><tr><th>TG ID</th><th>Username</th><th>Имя</th>
+    <th>Игр</th><th>Побед</th><th>Зашёл</th><th>Был</th></tr>
+    {rows}</table></body></html>'''
+    return HTMLResponse(html)
 
 app.mount('/', StaticFiles(directory='frontend', html=True), name='static')
 
