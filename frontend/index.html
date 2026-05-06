@@ -120,6 +120,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hcard.sel .card{outline:2.5px solid #f0b429}
 .hint-bar{padding:3px 12px 4px;background:rgba(0,0,0,.45);flex-shrink:0;text-align:center}
 .hint{font-size:10px;color:rgba(255,255,255,.38)}
+@keyframes atkIn{0%{opacity:0;transform:translateY(-60px) scale(.65) rotate(-12deg)}70%{transform:translateY(4px) scale(1.04) rotate(1deg)}100%{opacity:1;transform:translateY(0) scale(1) rotate(0)}}
+@keyframes defIn{0%{opacity:0;transform:rotate(-6deg) translateY(-30px)}100%{opacity:1;transform:rotate(8deg)}}
+.pair.deal-atk{animation:atkIn .35s cubic-bezier(.34,1.56,.64,1) both}
+.card.def.deal-def{animation:defIn .28s cubic-bezier(.34,1.56,.64,1) .05s both}
 .status{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.82);color:#fff;padding:8px 18px;border-radius:50px;font-size:11px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:60;max-width:92%;text-align:center}
 .status.show{opacity:1}
 
@@ -569,7 +573,7 @@ function mkCardEl(card, cls, trump) {
   return el;
 }
 function dealAnim(){document.querySelectorAll('#hand .hcard').forEach((el,i)=>{el.style.opacity='0';setTimeout(()=>{el.style.opacity='1';el.style.transition=`opacity .28s ease ${i*70}ms,transform .35s cubic-bezier(.34,1.56,.64,1) ${i*70}ms`;},30);});}
-function popCard(){const last=$('pairs').lastElementChild;if(!last)return;last.style.transform='scale(.45)';last.style.opacity='0';requestAnimationFrame(()=>{last.style.transition='transform .28s cubic-bezier(.34,1.56,.64,1),opacity .22s';last.style.transform='scale(1)';last.style.opacity='1';});}
+function popCard(){} // replaced by CSS deal animations
 function shakeHand(){const s=document.querySelector('.hcard.sel');if(!s)return;s.animate([{transform:s.style.transform+' translateX(0)'},{transform:s.style.transform+' translateX(-9px)'},{transform:s.style.transform+' translateX(9px)'},{transform:s.style.transform+' translateX(-5px)'},{transform:s.style.transform+' translateX(0)'}],{duration:300,easing:'ease'});}
 
 // ─── WEBSOCKET ────────────────────────────────────────
@@ -739,17 +743,26 @@ function renderMDeck(g) {
   $('trumpMini').style.display=g.deck_count>0?'flex':'none';
 }
 
+let prevMTable=[];
 function renderMTable(g) {
   const c=$('pairs'); c.innerHTML='';
   const isDfr=myPid===g.dfr, hasSel=!!multiSel;
   g.table.forEach((pair,idx)=>{
+    const isNewPair=idx>=prevMTable.length;
+    const hadDef=!isNewPair&&prevMTable[idx];
     const pd=document.createElement('div');
-    pd.className='pair'+(isDfr&&hasSel&&!pair.def?' target':'');
+    pd.className='pair'+(isDfr&&hasSel&&!pair.def?' target':'')+(isNewPair?' deal-atk':'');
     pd.appendChild(mkCardEl(pair.atk,'atk',g.trump));
-    if (pair.def) pd.appendChild(mkCardEl(pair.def,'def',g.trump));
-    if (isDfr) pd.addEventListener('click',e=>{e.stopPropagation();mDefend(idx);});
+    if(pair.def){
+      const de=mkCardEl(pair.def,'def',g.trump);
+      if(!hadDef) de.classList.add('deal-def');
+      pd.appendChild(de);
+    }
+    if(isDfr) pd.addEventListener('click',e=>{e.stopPropagation();mDefend(idx);});
     c.appendChild(pd);
   });
+  prevMTable=g.table.map(p=>!!p.def);
+  if(!g.table.length) prevMTable=[];
 }
 
 function renderMHand(g) {
@@ -819,7 +832,7 @@ function showMultiResult(g) {
   $('resS').textContent=isDraw?'Оба вышли одновременно':isDurak?'Вы остались в дураках!':dName+' — дурак!';
   $('resCoins').textContent=me.coins!=null?'🪙 '+me.coins:'';
   if (me.coins!=null) setCoins(me.coins);
-  multiGame=null; curLobby=null; multiSel=null;
+  multiGame=null; curLobby=null; multiSel=null; prevMTable=[];
   $('btnAgain').onclick=()=>showScreen('lobby');
   $('btnMenu3').onclick=()=>showScreen('menu');
   showScreen('result');
@@ -836,7 +849,7 @@ function startBotGame(mode='podkidnoy'){
   G={trump,trumpCard:deck[deck.length-1],deck:deck.slice(12),mode:mode,
      p:{hand:deck.slice(0,6),atk:true},o:{hand:deck.slice(6,12),atk:false},
      table:[],sel:null,state:'my_attack',over:false};
-  multiGame=null; multiSel=null;
+  multiGame=null; multiSel=null; prevBTable=[];
   showScreen('game');
   renderBA();
   requestAnimationFrame(()=>requestAnimationFrame(dealAnim));
@@ -866,17 +879,26 @@ function rBDeck(){
   $('trumpMini').style.display=G.deck.length>0?'flex':'none';
 }
 
+let prevBTable=[];
 function rBTable(){
   const c=$('pairs'); c.innerHTML='';
   const def=G.state==='my_defense', hasSel=!!G.sel;
   G.table.forEach((pair,idx)=>{
+    const isNewPair=idx>=prevBTable.length;
+    const hadDef=!isNewPair&&prevBTable[idx];
     const pd=document.createElement('div');
-    pd.className='pair'+(def&&hasSel&&!pair.def?' target':'');
+    pd.className='pair'+(def&&hasSel&&!pair.def?' target':'')+(isNewPair?' deal-atk':'');
     pd.appendChild(mkCardEl(pair.atk,'atk',G.trump));
-    if(pair.def) pd.appendChild(mkCardEl(pair.def,'def',G.trump));
+    if(pair.def){
+      const de=mkCardEl(pair.def,'def',G.trump);
+      if(!hadDef) de.classList.add('deal-def');
+      pd.appendChild(de);
+    }
     if(def) pd.addEventListener('click',e=>{e.stopPropagation();bDefend(idx);});
     c.appendChild(pd);
   });
+  prevBTable=G.table.map(p=>!!p.def);
+  if(!G.table.length) prevBTable=[];
 }
 
 function rBHand(){
