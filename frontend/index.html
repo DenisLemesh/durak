@@ -91,20 +91,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .trump-lbl{font-size:8px;color:rgba(255,255,255,.4);letter-spacing:1px}
 .game-body{flex:1;position:relative;overflow:hidden}
 .deck-zone{position:absolute;right:8px;top:44%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}
-.deck-stack{position:relative;width:44px;height:63px}
-.dc{position:absolute;width:44px;height:63px;background:linear-gradient(135deg,#1a4a6b,#0d2b42);border-radius:6px;border:1px solid rgba(255,255,255,.12)}
+.deck-stack{position:relative;width:56px;height:80px}
+.dc{position:absolute;width:56px;height:80px;background:linear-gradient(135deg,#1a4a6b,#0d2b42);border-radius:8px;border:1px solid rgba(255,255,255,.12)}
 .dc:nth-child(1){transform:translate(-2px,-2px) rotate(-2deg)}
 .dc:nth-child(2){transform:translate(-1px,-1px) rotate(-1deg)}
-.trump-mini{position:absolute;bottom:-16px;left:-6px;width:44px;height:63px;background:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;transform:rotate(90deg);border:2px solid #f0b429}
+.trump-mini{position:absolute;bottom:-20px;left:-8px;width:56px;height:80px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;transform:rotate(90deg);border:2px solid #f0b429}
 .deck-cnt{font-size:10px;color:rgba(255,255,255,.6);font-weight:600}
 .table-area{position:absolute;inset:0;bottom:118px;display:flex;align-items:center;justify-content:center;padding-right:64px}
 .pairs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;max-width:290px}
-.pair{position:relative;width:52px;height:88px}
-.card{position:absolute;width:46px;height:66px;background:#fff;border-radius:7px;display:flex;flex-direction:column;justify-content:space-between;padding:3px 4px;font-weight:700;border:1px solid rgba(0,0,0,.1);transition:transform .15s,box-shadow .15s}
+.pair{position:relative;width:66px;height:110px}
+.card{position:absolute;width:58px;height:84px;background:#fff;border-radius:9px;display:flex;flex-direction:column;justify-content:space-between;padding:4px 5px;font-weight:700;border:1px solid rgba(0,0,0,.1);transition:transform .15s,box-shadow .15s}
 .card.atk{bottom:0;left:0}.card.def{top:0;left:6px;transform:rotate(8deg)}
 .card.rc{color:#c0392b}.card.bc{color:#1a1a1a}.card.tc{background:linear-gradient(135deg,#fffde7,#fff9c4)}
-.card .rk{font-size:10px;line-height:1}.card .st{font-size:13px;line-height:1}
-.card .rb{font-size:10px;line-height:1;transform:rotate(180deg);align-self:flex-end}
+.card .rk{font-size:13px;line-height:1}.card .st{font-size:17px;line-height:1}
+.card .rb{font-size:13px;line-height:1;transform:rotate(180deg);align-self:flex-end}
 .pair.target .card.atk{box-shadow:0 0 0 2.5px #f0b429,0 4px 12px rgba(240,180,41,.45);cursor:pointer;transform:scale(1.06)}
 .fab-area{position:absolute;right:10px;bottom:126px;z-index:20;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .fab{padding:10px 18px;border:none;border-radius:50px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 18px rgba(0,0,0,.6);transition:transform .12s}
@@ -115,7 +115,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .fab.transfer{background:#3498db;color:#fff}
 .hand-wrap{position:absolute;bottom:0;left:0;right:0;height:118px;background:linear-gradient(to top,rgba(0,0,0,.65),transparent);display:flex;align-items:flex-end;justify-content:center;padding-bottom:7px}
 .hand{position:relative;height:96px;display:flex;align-items:flex-end}
-.hcard{position:absolute;width:52px;height:76px;cursor:pointer;transform-origin:bottom center;transition:transform .22s cubic-bezier(.34,1.56,.64,1)}
+.hcard{position:absolute;width:64px;height:92px;cursor:pointer;transform-origin:bottom center;transition:transform .22s cubic-bezier(.34,1.56,.64,1)}
 .hcard:hover .card,.hcard.sel .card{transform:translateY(-20px)}
 .hcard.sel .card{outline:2.5px solid #f0b429}
 .hint-bar{padding:3px 12px 4px;background:rgba(0,0,0,.45);flex-shrink:0;text-align:center}
@@ -776,7 +776,7 @@ function renderMHand(g) {
     const x=sx+i*step, ang=(i-(n-1)/2)*fa, yo=Math.abs(i-(n-1)/2)*1.5;
     const w=document.createElement('div');
     w.className='hcard'+(multiSel===card.id?' sel':'');
-    w.style.cssText=`left:50%;margin-left:-26px;transform:translateX(${x}px) translateY(${yo}px) rotate(${ang}deg)`;
+    w.style.cssText=`left:50%;margin-left:-32px;transform:translateX(${x}px) translateY(${yo}px) rotate(${ang}deg)`;
     w.appendChild(mkCardEl(card,'',g.trump));
     w.addEventListener('click',e=>{e.stopPropagation();onMCardClick(card.id,g);});
     c.appendChild(w);
@@ -910,7 +910,7 @@ function rBHand(){
     const x=sx+i*step, ang=(i-(n-1)/2)*fa, yo=Math.abs(i-(n-1)/2)*1.5;
     const w=document.createElement('div');
     w.className='hcard'+(G.sel===card.id?' sel':'');
-    w.style.cssText=`left:50%;margin-left:-26px;transform:translateX(${x}px) translateY(${yo}px) rotate(${ang}deg)`;
+    w.style.cssText=`left:50%;margin-left:-32px;transform:translateX(${x}px) translateY(${yo}px) rotate(${ang}deg)`;
     w.appendChild(mkCardEl(card,'',G.trump));
     w.addEventListener('click',e=>{e.stopPropagation();bCardClick(card.id);});
     c.appendChild(w);
