@@ -575,6 +575,7 @@ function mkCardEl(card, cls, trump) {
   el.innerHTML=`<div class="corner tl"><span class="rk">${card.r}</span><span class="cs">${card.s}</span></div><span class="cs-lg">${card.s}</span><div class="corner br"><span class="rk">${card.r}</span><span class="cs">${card.s}</span></div>`;
   return el;
 }
+function sortHand(hand,trump){const so={'♠':0,'♣':1,'♥':2,'♦':3};return[...hand].sort((a,b)=>{const at=a.s===trump,bt=b.s===trump;if(at!==bt)return at?1:-1;const sd=(so[a.s]??4)-(so[b.s]??4);return sd||RV[a.r]-RV[b.r];});}
 function dealAnim(){document.querySelectorAll('#hand .hcard').forEach((el,i)=>{el.style.opacity='0';setTimeout(()=>{el.style.opacity='1';el.style.transition=`opacity .28s ease ${i*70}ms,transform .35s cubic-bezier(.34,1.56,.64,1) ${i*70}ms`;},30);});}
 function popCard(){} // replaced by CSS deal animations
 function shakeHand(){const s=document.querySelector('.hcard.sel');if(!s)return;s.animate([{transform:s.style.transform+' translateX(0)'},{transform:s.style.transform+' translateX(-9px)'},{transform:s.style.transform+' translateX(9px)'},{transform:s.style.transform+' translateX(-5px)'},{transform:s.style.transform+' translateX(0)'}],{duration:300,easing:'ease'});}
@@ -772,7 +773,7 @@ function renderMHand(g) {
   const c=$('hand'); c.innerHTML='';
   const me=g.players.find(p=>p.id===myPid);
   if (!me?.hand?.length) return;
-  const h=me.hand, n=h.length;
+  const h=sortHand(me.hand,g.trump), n=h.length;
   const sp=Math.min(280,n*44), step=n>1?sp/(n-1):0, sx=-sp/2, fa=Math.min(4,20/n);
   c.style.width=(sp+56)+'px';
   h.forEach((card,i)=>{
@@ -906,7 +907,7 @@ function rBTable(){
 
 function rBHand(){
   const c=$('hand'); c.innerHTML='';
-  const h=G.p.hand; if(!h.length)return;
+  const h=sortHand(G.p.hand,G.trump); if(!h.length)return;
   const n=h.length, sp=Math.min(280,n*44), step=n>1?sp/(n-1):0, sx=-sp/2, fa=Math.min(4,20/n);
   c.style.width=(sp+56)+'px';
   h.forEach((card,i)=>{
