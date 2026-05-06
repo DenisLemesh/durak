@@ -48,6 +48,20 @@ def make_deck():
 
 def find_card(hand, cid): return next((c for c in hand if c['id'] == cid), None)
 
+def get_friends_view(pid: str) -> list:
+    friends = pdb.get(pid, {}).get('friends', [])
+    return [{'id': f, 'name': pdb.get(f, {}).get('name', '?'),
+             'photo': pdb.get(f, {}).get('photo_url'), 'online': f in conns}
+            for f in friends if f in pdb]
+
+def find_pid_by_short(short_id: str) -> Optional[str]:
+    short = short_id.upper()
+    for p in pdb:
+        display = p.replace('tg_', '')[:8].upper()
+        if display == short:
+            return p
+    return None
+
 async def send(pid, msg):
     ws = conns.get(pid)
     if ws:
@@ -199,6 +213,7 @@ async def ws_ep(ws: WebSocket):
                 pass
         await ws.send_text(json.dumps({'type': 'init_ok', 'pid': pid,
             'me': {'id': pid, **pdb[pid]},
+            'friends': get_friends_view(pid),
             'lobbies': [l.info() for l in lobbies.values() if l.status == 'waiting']
         }, ensure_ascii=False))
         while True: await on_msg(pid, json.loads(await ws.receive_text()))
@@ -261,6 +276,35 @@ async def on_msg(pid, d):
         if name:
             pdb[pid]['name'] = name
             _save(pdb)
+
+    elif t == 'add_friend':
+        short_id = str(d.get('short_id', '')).strip().upper()
+        target = find_pid_by_short(short_id)
+        if not target:
+            return await send(pid, {'type': 'err', 'msg': 'Игрок не найден'})
+        if target == pid:
+            return await send(pid, {'type': 'err', 'msg': 'Нельзя добавить себя'})
+        pdb[pid].setdefault('friends', [])
+        pdb[target].setdefault('friends', [])
+        if target not in pdb[pid]['friends']:
+            pdb[pid]['friends'].append(target)
+        if pid not in pdb[target]['friends']:
+            pdb[target]['friends'].append(pid)
+        _save(pdb)
+        await send(pid, {'type': 'friends_update', 'friends': get_friends_view(pid)})
+        await send(target, {'type': 'friends_update', 'friends': get_friends_view(target)})
+
+    elif t == 'remove_friend':
+        target = str(d.get('pid', '')).strip()
+        if target in pdb:
+            pdb[pid].setdefault('friends', [])
+            pdb[target].setdefault('friends', [])
+            if target in pdb[pid]['friends']:
+                pdb[pid]['friends'].remove(target)
+            if pid in pdb[target]['friends']:
+                pdb[target]['friends'].remove(pid)
+            _save(pdb)
+        await send(pid, {'type': 'friends_update', 'friends': get_friends_view(pid)})
 
     elif t == 'chat':
         text = str(d.get('msg', ''))[:200].strip()

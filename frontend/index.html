@@ -231,6 +231,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pm-section-title span{color:rgba(255,255,255,.3);font-weight:400}
 .pm-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px;color:rgba(255,255,255,.25);font-size:12px;background:rgba(255,255,255,.04);border-radius:12px;border:1px dashed rgba(255,255,255,.08)}
 .pm-empty svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.pm-friends-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(52,152,219,.12);border:1.5px solid rgba(52,152,219,.3);border-radius:12px;padding:11px;color:#5dade2;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;margin-bottom:10px}
+.pm-friends-btn:active{background:rgba(52,152,219,.22)}
+.pm-friends-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.friends-cnt{background:rgba(52,152,219,.25);border-radius:50px;padding:1px 8px;font-size:11px;margin-left:4px}
+.friend-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.friend-row:last-child{border-bottom:none}
+.friend-av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden}
+.friend-av img{width:100%;height:100%;object-fit:cover}
+.friend-name{font-size:13px;font-weight:600;color:#fff}
+.friend-sub{font-size:11px;color:rgba(255,255,255,.35);margin-top:1px}
+.friend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.friend-dot.on{background:#4caf50;box-shadow:0 0 5px #4caf50}
+.friend-dot.off{background:#444}
+.friend-rm{background:rgba(255,255,255,.06);border:none;border-radius:8px;color:rgba(255,100,80,.7);cursor:pointer;padding:5px 9px;font-size:13px;transition:background .15s;flex-shrink:0}
+.friend-rm:active{background:rgba(255,100,80,.2)}
 .photos-grid{display:flex;gap:10px;flex-wrap:wrap}
 .photo-slot{width:80px;height:80px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer;flex-shrink:0}
 .photo-add{width:80px;height:80px;border-radius:12px;background:rgba(255,255,255,.06);border:1.5px dashed rgba(255,255,255,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,.35);font-size:10px;cursor:pointer;flex-shrink:0}
@@ -479,6 +494,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
 
       <!-- Действия -->
+      <button class="pm-friends-btn" id="pmFriendsBtn">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Друзья<span class="friends-cnt" id="friendsCountBadge">0</span>
+      </button>
       <div class="pm-actions">
         <button class="pm-edit-btn" id="pmEditBtn">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -514,6 +533,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- ДРУЗЬЯ МОДАЛ -->
+<div class="modal-overlay off" id="friendsModal">
+  <div class="profile-modal">
+    <div class="pm-header">
+      <span class="pm-title">Друзья</span>
+      <button class="pm-close" id="closeFriendsModal">✕</button>
+    </div>
+    <div class="pm-body">
+      <div id="friendsList"></div>
+      <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.07);padding-top:16px">
+        <div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Добавить по ID</div>
+        <div style="display:flex;gap:8px">
+          <input id="friendIdInput" class="chat-input" style="flex:1;font-size:13px" placeholder="Введите ID игрока" maxlength="20">
+          <button id="friendAddBtn" class="mbtn gold" style="white-space:nowrap;width:auto;padding:0 16px;height:40px">Добавить</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -590,7 +629,7 @@ function popCard(){} // replaced by CSS deal animations
 function shakeHand(){const s=document.querySelector('.hcard.sel');if(!s)return;s.animate([{transform:s.style.transform+' translateX(0)'},{transform:s.style.transform+' translateX(-9px)'},{transform:s.style.transform+' translateX(9px)'},{transform:s.style.transform+' translateX(-5px)'},{transform:s.style.transform+' translateX(0)'}],{duration:300,easing:'ease'});}
 
 // ─── WEBSOCKET ────────────────────────────────────────
-let ws=null, myPid=null, myCoins=0, curLobby=null, multiGame=null, multiSel=null;
+let ws=null, myPid=null, myCoins=0, curLobby=null, multiGame=null, multiSel=null, myFriends=[];
 let cachedLobbies=[];
 
 function getPid() {
@@ -629,6 +668,7 @@ function onWSMsg(d) {
       myPid=d.pid; setCoins(d.me.coins);
       localStorage.setItem('durak_name', d.me.name||'');
       profileStats.games=d.me.games||0; profileStats.wins=d.me.wins||0;
+      myFriends=d.friends||[]; updateFriendsBadge();
       renderLobbyList(d.lobbies||[]);
       updateProfileBtn();
       break;
@@ -647,6 +687,9 @@ function onWSMsg(d) {
       break;
     case 'game':
       multiGame=d.g; renderMultiGame();
+      break;
+    case 'friends_update':
+      myFriends=d.friends||[]; updateFriendsBadge(); renderFriendsList();
       break;
     case 'err':
       setSt('⚠ '+d.msg);
@@ -1146,6 +1189,34 @@ function openProfile(){
 function closeProfile(){ $('profileModal').classList.add('off'); }
 
 let profileStats = { games:0, wins:0 };
+
+// ─── ДРУЗЬЯ ──────────────────────────────────────────
+function updateFriendsBadge(){ $('friendsCountBadge').textContent=myFriends.length; }
+function renderFriendsList(){
+  const list=$('friendsList');
+  if(!myFriends.length){
+    list.innerHTML='<div class="pm-empty"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Друзей пока нет</div>';
+    return;
+  }
+  list.innerHTML='';
+  myFriends.forEach(f=>{
+    const row=document.createElement('div'); row.className='friend-row';
+    const av=f.photo?`<img src="${f.photo}">`:(f.name||'?')[0].toUpperCase();
+    row.innerHTML=`<div class="friend-av">${av}</div><div style="flex:1"><div class="friend-name">${f.name||'Игрок'}</div><div class="friend-sub">${f.online?'● Онлайн':'○ Оффлайн'}</div></div><div class="friend-dot ${f.online?'on':'off'}"></div><button class="friend-rm" data-pid="${f.id}">✕</button>`;
+    row.querySelector('.friend-rm').onclick=()=>wsSend({type:'remove_friend',pid:f.id});
+    list.appendChild(row);
+  });
+}
+$('pmFriendsBtn').onclick=()=>{ closeProfile(); renderFriendsList(); $('friendsModal').classList.remove('off'); };
+$('closeFriendsModal').onclick=()=>$('friendsModal').classList.add('off');
+$('friendsModal').addEventListener('click',e=>{ if(e.target===$('friendsModal')) $('friendsModal').classList.add('off'); });
+$('friendAddBtn').onclick=()=>{
+  const id=$('friendIdInput').value.trim().toUpperCase();
+  if(!id){setSt('Введите ID');return;}
+  wsSend({type:'add_friend',short_id:id});
+  $('friendIdInput').value='';
+};
+$('friendIdInput').onkeydown=e=>{ if(e.key==='Enter') $('friendAddBtn').click(); };
 
 $('btnProfile').onclick = openProfile;
 $('closeProfile').onclick = closeProfile;
