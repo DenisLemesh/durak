@@ -475,9 +475,11 @@ async def admin_users(key: str = Query(default='')):
         dot = '<span style="color:#4caf50;font-size:16px" title="Онлайн">●</span>' if is_online else '<span style="color:#555;font-size:16px" title="Оффлайн">●</span>'
         bg = 'background:#0d2010;' if is_online else ''
         name = f'{u["first_name"] or "—"} {u["last_name"] or ""}'.strip()
+        game_id = pdb.get(f'tg_{u["tg_id"]}', {}).get('game_id', '—')
         return (
             f'<tr style="{bg}">'
             f'<td>{dot}</td>'
+            f'<td style="font-family:monospace;color:#f0b429;font-weight:700">{game_id}</td>'
             f'<td>{u["tg_id"]}</td>'
             f'<td>{u["username"] or "—"}</td>'
             f'<td>{name}</td>'
@@ -517,7 +519,7 @@ async def admin_users(key: str = Query(default='')):
   <div class="badge"><div class="badge-val">{len(users)}</div><div class="badge-lbl">Всего игроков</div></div>
 </div>
 <table>
-  <tr><th>●</th><th>TG ID</th><th>Username</th><th>Имя</th><th>Игр</th><th>Побед</th><th>Зашёл</th><th>Был</th></tr>
+  <tr><th>●</th><th>Game ID</th><th>TG ID</th><th>Username</th><th>Имя</th><th>Игр</th><th>Побед</th><th>Зашёл</th><th>Был</th></tr>
   {rows}
 </table>
 </body></html>'''
