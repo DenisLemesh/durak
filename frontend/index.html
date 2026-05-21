@@ -704,7 +704,7 @@ function onWSMsg(d) {
         createCurrency='usdt'; $('create-title').textContent='Лобби на USDT';
         $('betSlider').max=USDT_BETS.length; $('betSlider').value=1;
         createBet=USDT_BETS[0]; $('betValue').textContent='$'+createBet+' USDT';
-        $('betRangeMin').textContent='$0.5'; $('betRangeMax').textContent='$10';
+        $('betRangeMin').textContent='$1'; $('betRangeMax').textContent='$10';
         showScreen('create'); renderCreateLobbies();
       } else { showScreen('lobby'); }
       break;
@@ -798,7 +798,7 @@ function renderWaitRoom() {
 
 // ─── ФОРМА СОЗДАНИЯ ───────────────────────────────────
 let createBet=500, createMaxP=2, createMode='podkidnoy', createCurrency='coins';
-const USDT_BETS=[0.5,1,2,5,10];
+const USDT_BETS=[1,2,3,4,5,6,7,8,9,10];
 
 $('betSlider').oninput=function(){
   if(createCurrency==='usdt'){
@@ -1213,7 +1213,7 @@ $('btnUSDT').onclick=()=>{
   createCurrency='usdt'; $('create-title').textContent='Лобби на USDT';
   $('betSlider').max=USDT_BETS.length; $('betSlider').value=1;
   createBet=USDT_BETS[0]; $('betValue').textContent='$'+createBet+' USDT';
-  $('betRangeMin').textContent='$0.5'; $('betRangeMax').textContent='$10';
+  $('betRangeMin').textContent='$1'; $('betRangeMax').textContent='$10';
   showScreen('create'); renderCreateLobbies();
 };
 $('btnCreateLobby').onclick=()=>{
