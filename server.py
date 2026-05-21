@@ -160,7 +160,11 @@ class Game:
                 if n > 1 and self.ai == self.di:
                     self.di = (self.di + 1) % n
         if len(self.pids) <= 1:
-            self.durak = self.pids[0] if self.pids else None
+            if self.pids:
+                self.durak = self.pids[0]
+            else:
+                # все вышли одновременно — последний в beaten_out становится дураком
+                self.durak = self.beaten_out[-1] if self.beaten_out else self.all_pids[-1]
             self.state = 'finished'
 
     def next_round(self, took: bool):
