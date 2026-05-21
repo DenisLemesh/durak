@@ -193,10 +193,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* profile button */
 .profile-btn{position:absolute;top:12px;left:12px;z-index:10;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.12);border-radius:50px;padding:5px 12px 5px 5px;cursor:pointer;transition:background .15s;backdrop-filter:blur(8px)}
 .profile-btn:active{background:rgba(0,0,0,.65)}
-.home-fab{position:absolute;top:66px;left:12px;z-index:10;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.4);border:1.5px solid rgba(255,255,255,.1);border-radius:50px;padding:7px 15px;font-size:13px;font-weight:600;color:rgba(255,255,255,.7);cursor:pointer;transition:background .15s;backdrop-filter:blur(8px)}
+.game-btn-row{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;flex-shrink:0;z-index:10}
+.home-fab{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.4);border:1.5px solid rgba(255,255,255,.1);border-radius:50px;padding:7px 15px;font-size:13px;font-weight:600;color:rgba(255,255,255,.7);cursor:pointer;transition:background .15s;backdrop-filter:blur(8px)}
 .home-fab:active{background:rgba(0,0,0,.65);color:#fff}
 .home-fab svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
-.surrender-fab{color:rgba(255,110,90,.85);border-color:rgba(255,100,80,.25);left:auto;right:8px}
+.surrender-fab{color:rgba(255,110,90,.85);border-color:rgba(255,100,80,.25)}
 .surrender-fab:active{background:rgba(80,0,0,.7);color:#ff8070}
 .profile-btn-av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0;border:2px solid rgba(240,180,41,.5)}
 .profile-btn-av img{width:100%;height:100%;object-fit:cover}
@@ -437,14 +438,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <!-- ИГРА -->
 <div id="game-screen" class="screen off">
   <div class="topbar" id="topbar"></div>
-  <button class="home-fab" id="btnHomeGame" style="top:56px;left:8px">
-    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    Главная
-  </button>
-  <button class="home-fab surrender-fab" id="btnSurrender" style="top:56px">
-    <svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>
-    Сдаться
-  </button>
+  <div class="game-btn-row">
+    <button class="home-fab" id="btnHomeGame">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Главная
+    </button>
+    <button class="home-fab surrender-fab" id="btnSurrender">
+      <svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>Сдаться
+    </button>
+  </div>
   <div class="game-body">
     <div class="deck-zone">
       <div class="deck-stack"><div class="dc"></div><div class="dc"></div><div class="trump-mini" id="trumpMini"></div></div>
