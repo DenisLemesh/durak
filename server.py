@@ -237,6 +237,13 @@ async def ws_ep(ws: WebSocket):
         conns.pop(pid, None)
 
 async def on_msg(pid, d):
+    try:
+        await _on_msg(pid, d)
+    except Exception as e:
+        print(f'[on_msg error] pid={pid} type={d.get("type")} err={e}')
+        await send(pid, {'type': 'err', 'msg': 'Ошибка сервера'})
+
+async def _on_msg(pid, d):
     t = d.get('type')
 
     if t == 'create_lobby':
@@ -271,7 +278,7 @@ async def on_msg(pid, d):
         if pid in lb.players: return
         if len(lb.players) >= lb.max_p:
             return await send(pid, {'type': 'err', 'msg': 'Лобби полное'})
-        if pdb[pid]['coins'] < lb.bet:
+        if lb.currency == 'coins' and pdb[pid]['coins'] < lb.bet:
             return await send(pid, {'type': 'err', 'msg': 'Недостаточно монет'})
         await remove_from_lobby(pid)
         lb.players.append(pid)
@@ -280,6 +287,11 @@ async def on_msg(pid, d):
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await lb.notify({'type': 'lobby_update', 'lobby': lb.info()})
         await broadcast_lobby_list()
+        if len(lb.players) >= lb.max_p and lb.status == 'waiting':
+            lb.status = 'playing'
+            lb.game = Game(lb)
+            await lb.game.push()
+            await broadcast_lobby_list()
 
     elif t == 'leave_lobby':
         await remove_from_lobby(pid, refund=True)
