@@ -42,18 +42,18 @@ async def create_invoice(amount: float, payload: str) -> dict:
 
 
 async def transfer(tg_id: int, amount: float, spend_id: str, comment: str = '') -> dict:
+    body = {
+        'user_id': tg_id,
+        'asset': 'USDT',
+        'amount': str(round(amount, 2)),
+        'spend_id': spend_id,
+        'disable_send_notification': False,
+    }
     async with httpx.AsyncClient(timeout=15) as c:
         r = await c.post(
             f'{BASE_URL}/transfer',
             headers={'Crypto-Pay-API-Token': CRYPTOPAY_TOKEN},
-            json={
-                'user_id': tg_id,
-                'asset': 'USDT',
-                'amount': str(round(amount, 2)),
-                'spend_id': spend_id,
-                'comment': comment,
-                'disable_send_notification': False,
-            },
+            json=body,
         )
     data = r.json()
     if not data.get('ok'):
