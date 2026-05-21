@@ -9,7 +9,7 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from database import upsert_user, increment_stats, get_all_users
+from database import upsert_user, increment_stats, update_coins, get_all_users
 
 app = FastAPI()
 
@@ -219,6 +219,7 @@ async def ws_ep(ws: WebSocket):
             try:
                 tg_id = int(pid[3:])
                 upsert_user(tg_id=tg_id, first_name=raw.get('name'))
+                update_coins(tg_id, pdb[pid].get('coins', INITIAL_COINS))
             except ValueError:
                 pass
         await ws.send_text(json.dumps({'type': 'init_ok', 'pid': pid,
@@ -442,18 +443,27 @@ async def end_game(g: Game):
             pdb[w].setdefault('games', 0); pdb[w]['games'] += 1
             pdb[w].setdefault('wins', 0);  pdb[w]['wins']  += 1
             if w.startswith('tg_'):
-                try: increment_stats(int(w[3:]), won=True)
+                try:
+                    tg_id = int(w[3:])
+                    increment_stats(tg_id, won=True)
+                    update_coins(tg_id, pdb[w]['coins'])
                 except ValueError: pass
         pdb[g.durak].setdefault('games', 0); pdb[g.durak]['games'] += 1
         if g.durak.startswith('tg_'):
-            try: increment_stats(int(g.durak[3:]), won=False)
+            try:
+                tg_id = int(g.durak[3:])
+                increment_stats(tg_id, won=False)
+                update_coins(tg_id, pdb[g.durak]['coins'])
             except ValueError: pass
     else:
         for p in g.all_pids:
             pdb[p]['coins'] += lb.bet
             pdb[p].setdefault('games', 0); pdb[p]['games'] += 1
             if p.startswith('tg_'):
-                try: increment_stats(int(p[3:]), won=False)
+                try:
+                    tg_id = int(p[3:])
+                    increment_stats(tg_id, won=False)
+                    update_coins(tg_id, pdb[p]['coins'])
                 except ValueError: pass
     _save(pdb)
     lb.status = 'finished'
@@ -485,6 +495,7 @@ async def admin_users(key: str = Query(default='')):
             f'<td>{name}</td>'
             f'<td>{u["games"]}</td>'
             f'<td>{u["wins"]}</td>'
+            f'<td style="color:#f0b429;font-weight:600">{u.get("coins", 1000)}</td>'
             f'<td>{u["joined_at"][:16].replace("T"," ")}</td>'
             f'<td>{u["last_seen"][:16].replace("T"," ")}</td>'
             f'</tr>'
@@ -519,7 +530,7 @@ async def admin_users(key: str = Query(default='')):
   <div class="badge"><div class="badge-val">{len(users)}</div><div class="badge-lbl">Всего игроков</div></div>
 </div>
 <table>
-  <tr><th>●</th><th>Game ID</th><th>TG ID</th><th>Username</th><th>Имя</th><th>Игр</th><th>Побед</th><th>Зашёл</th><th>Был</th></tr>
+  <tr><th>●</th><th>Game ID</th><th>TG ID</th><th>Username</th><th>Имя</th><th>Игр</th><th>Побед</th><th>Монеты</th><th>Зашёл</th><th>Был</th></tr>
   {rows}
 </table>
 </body></html>'''

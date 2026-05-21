@@ -24,9 +24,13 @@ def init_db():
                 joined_at   TEXT NOT NULL,
                 last_seen   TEXT NOT NULL,
                 games       INTEGER DEFAULT 0,
-                wins        INTEGER DEFAULT 0
+                wins        INTEGER DEFAULT 0,
+                coins       INTEGER DEFAULT 1000
             )
         ''')
+        cols = [row[1] for row in conn.execute('PRAGMA table_info(users)').fetchall()]
+        if 'coins' not in cols:
+            conn.execute('ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 1000')
         conn.commit()
 
 
@@ -43,6 +47,12 @@ def upsert_user(tg_id: int, first_name: str = None,
                 last_name  = excluded.last_name,
                 last_seen  = excluded.last_seen
         ''', (tg_id, username, first_name, last_name, now, now))
+        conn.commit()
+
+
+def update_coins(tg_id: int, coins: int):
+    with get_conn() as conn:
+        conn.execute('UPDATE users SET coins=? WHERE tg_id=?', (coins, tg_id))
         conn.commit()
 
 
