@@ -85,19 +85,20 @@ async def broadcast_lobby_list():
 
 # ── Лобби ─────────────────────────────────────────────────────────────────
 class Lobby:
-    def __init__(self, owner, max_p, bet, mode):
+    def __init__(self, owner, max_p, bet, mode, currency='coins'):
         self.id = uuid.uuid4().hex[:8]
         self.owner = owner
         self.max_p = max_p
         self.bet = bet
         self.mode = mode  # 'podkidnoy' | 'perevodoy'
+        self.currency = currency  # 'coins' | 'usdt'
         self.players: List[str] = [owner]
         self.game: Optional['Game'] = None
         self.status = 'waiting'
 
     def info(self):
         return {'id': self.id, 'owner': self.owner, 'max_p': self.max_p,
-                'bet': self.bet, 'mode': self.mode, 'status': self.status,
+                'bet': self.bet, 'mode': self.mode, 'currency': self.currency, 'status': self.status,
                 'players': [{'id': p, 'name': pdb.get(p, {}).get('name', '?'),
                               'photo': pdb.get(p, {}).get('photo_url')} for p in self.players]}
 
@@ -190,7 +191,7 @@ async def remove_from_lobby(pid, refund=False):
     lb = player_lobby(pid)
     if not lb or lb.status != 'waiting': return
     lb.players.remove(pid)
-    if refund: pdb[pid]['coins'] += lb.bet; _save(pdb)
+    if refund and lb.currency == 'coins': pdb[pid]['coins'] += lb.bet; _save(pdb)
     if not lb.players: del lobbies[lb.id]
     else:
         if lb.owner == pid: lb.owner = lb.players[0]
@@ -236,15 +237,27 @@ async def on_msg(pid, d):
     t = d.get('type')
 
     if t == 'create_lobby':
-        bet = max(500, min(5000, (int(d.get('bet', 500)) // 500) * 500))
+        currency = d.get('currency', 'coins')
         max_p = max(2, min(6, int(d.get('max_p', 2))))
         mode = d.get('mode', 'podkidnoy')
-        if pdb[pid]['coins'] < bet:
-            return await send(pid, {'type': 'err', 'msg': 'Недостаточно монет'})
+        if currency == 'usdt':
+            try:
+                bet = float(d.get('bet', 0.5))
+            except (ValueError, TypeError):
+                bet = 0.5
+            valid = [0.5, 1, 2, 5, 10]
+            if bet not in valid:
+                bet = min(valid, key=lambda x: abs(x - bet))
+        else:
+            currency = 'coins'
+            bet = max(500, min(5000, (int(d.get('bet', 500)) // 500) * 500))
+            if pdb[pid]['coins'] < bet:
+                return await send(pid, {'type': 'err', 'msg': 'Недостаточно монет'})
         await remove_from_lobby(pid)
-        lb = Lobby(pid, max_p, bet, mode)
+        lb = Lobby(pid, max_p, bet, mode, currency)
         lobbies[lb.id] = lb
-        pdb[pid]['coins'] -= bet; _save(pdb)
+        if currency == 'coins':
+            pdb[pid]['coins'] -= bet; _save(pdb)
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await broadcast_lobby_list()
 
@@ -259,7 +272,8 @@ async def on_msg(pid, d):
             return await send(pid, {'type': 'err', 'msg': 'Недостаточно монет'})
         await remove_from_lobby(pid)
         lb.players.append(pid)
-        pdb[pid]['coins'] -= lb.bet; _save(pdb)
+        if lb.currency == 'coins':
+            pdb[pid]['coins'] -= lb.bet; _save(pdb)
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await lb.notify({'type': 'lobby_update', 'lobby': lb.info()})
         await broadcast_lobby_list()
@@ -435,35 +449,38 @@ async def do_act(pid, g: Game, d):
 async def end_game(g: Game):
     lb = lobbies.get(g.lobby_id)
     if not lb: return
+    is_usdt = lb.currency == 'usdt'
     pot = lb.bet * len(g.all_pids)
     if g.durak:
         winners = [p for p in g.all_pids if p != g.durak]
         for w in winners:
-            pdb[w]['coins'] += pot // len(winners)
+            if not is_usdt:
+                pdb[w]['coins'] += int(pot // len(winners))
             pdb[w].setdefault('games', 0); pdb[w]['games'] += 1
             pdb[w].setdefault('wins', 0);  pdb[w]['wins']  += 1
             if w.startswith('tg_'):
                 try:
                     tg_id = int(w[3:])
                     increment_stats(tg_id, won=True)
-                    update_coins(tg_id, pdb[w]['coins'])
+                    if not is_usdt: update_coins(tg_id, pdb[w]['coins'])
                 except ValueError: pass
         pdb[g.durak].setdefault('games', 0); pdb[g.durak]['games'] += 1
         if g.durak.startswith('tg_'):
             try:
                 tg_id = int(g.durak[3:])
                 increment_stats(tg_id, won=False)
-                update_coins(tg_id, pdb[g.durak]['coins'])
+                if not is_usdt: update_coins(tg_id, pdb[g.durak]['coins'])
             except ValueError: pass
     else:
         for p in g.all_pids:
-            pdb[p]['coins'] += lb.bet
+            if not is_usdt:
+                pdb[p]['coins'] += lb.bet
             pdb[p].setdefault('games', 0); pdb[p]['games'] += 1
             if p.startswith('tg_'):
                 try:
                     tg_id = int(p[3:])
                     increment_stats(tg_id, won=False)
-                    update_coins(tg_id, pdb[p]['coins'])
+                    if not is_usdt: update_coins(tg_id, pdb[p]['coins'])
                 except ValueError: pass
     _save(pdb)
     lb.status = 'finished'

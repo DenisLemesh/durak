@@ -15,6 +15,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mbtn:active{transform:scale(.96)}
 .mbtn.gold{background:linear-gradient(135deg,#f0b429,#d47800);color:#1a1a1a;box-shadow:0 6px 20px rgba(240,180,41,.35)}
 .mbtn.ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.mbtn.usdt{background:linear-gradient(135deg,#26a17b,#1a7a5e);color:#fff;box-shadow:0 6px 20px rgba(38,161,123,.35)}
+.usdt-lobby{border-color:rgba(38,161,123,.35)!important;background:rgba(38,161,123,.09)!important}
+.usdt-lobby:active{background:rgba(38,161,123,.18)!important}
 .mbtn.red{background:#c0392b;color:#fff}
 .mbtn.sm{width:auto;padding:10px 20px;font-size:12px}
 .logo{font-size:52px;font-weight:800;color:#f0b429;letter-spacing:-2px;text-shadow:0 0 30px rgba(240,180,41,.35)}
@@ -275,6 +278,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="logo">♠ ДУРАК</div>
       <div class="logo-sub">карточная игра</div>
       <button class="mbtn ghost" id="btnReturnGame" style="display:none;background:rgba(240,180,41,.15);border:1.5px solid #f0b429;color:#f0b429">▶ Вернуться в игру</button>
+      <button class="mbtn usdt" id="btnUSDT">💵 Играть на USDT</button>
       <button class="mbtn gold" id="btnPlay">Играть с ботом</button>
       <button class="mbtn ghost" id="btnMulti">🌐 Найти игру</button>
       <button class="mbtn ghost" id="btnRules" style="width:160px;font-size:11px;display:none">Правила</button>
@@ -369,14 +373,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="create-screen" class="screen off">
   <div class="screen-header">
     <button class="back-btn" id="btnCreateBack">← Назад</button>
-    <span class="screen-title">Новое лобби</span>
+    <span class="screen-title" id="create-title">Новое лобби</span>
   </div>
   <div class="create-body">
     <div class="form-group">
       <label class="form-label">Ставка</label>
       <div class="form-value" id="betValue">500 🪙</div>
       <input type="range" class="slider" id="betSlider" min="1" max="10" value="1" step="1">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.3);margin-top:4px"><span>500</span><span>5000</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.3);margin-top:4px"><span id="betRangeMin">500</span><span id="betRangeMax">5000</span></div>
     </div>
     <div class="form-group">
       <label class="form-label">Количество игроков</label>
@@ -710,9 +714,9 @@ function renderLobbyList(list) {
   const el=$('lobbyList');
   if (!list.length) { el.innerHTML='<div class="empty-lobbies">Нет открытых лобби</div>'; return; }
   el.innerHTML=list.map(l=>`
-    <div class="lobby-card" onclick="doJoinLobby('${l.id}')">
+    <div class="lobby-card${l.currency==='usdt'?' usdt-lobby':''}" onclick="doJoinLobby('${l.id}')">
       <div class="lc-top">
-        <span class="lc-bet">🪙 ${l.bet}</span>
+        <span class="lc-bet">${l.currency==='usdt'?'💵 $'+l.bet:'🪙 '+l.bet}</span>
         <span class="lc-mode">${l.mode==='perevodoy'?'Переводной':'Подкидной'}</span>
       </div>
       <div class="lc-players">${l.players.length}/${l.max_p} игроков</div>
@@ -722,7 +726,7 @@ function renderLobbyList(list) {
 
 function doJoinLobby(lid) {
   const lb=cachedLobbies.find(l=>l.id===lid);
-  if (lb && myCoins<lb.bet) { setSt('Недостаточно монет'); return; }
+  if(lb&&lb.currency!=='usdt'&&myCoins<lb.bet){setSt('Недостаточно монет');return;}
   wsSend({type:'join_lobby', lid});
 }
 
@@ -731,7 +735,7 @@ function showWaitScreen() { renderWaitRoom(); showScreen('wait'); }
 function renderWaitRoom() {
   if (!curLobby) return;
   const l=curLobby;
-  $('wibet').textContent='🪙 '+l.bet;
+  $('wibet').textContent=(l.currency==='usdt'?'💵 $':'🪙 ')+l.bet;
   $('wimode').textContent=l.mode==='perevodoy'?'Переводной':'Подкидной';
   $('wiplayers').textContent=l.players.length+'/'+l.max_p;
   $('btnStartGame').style.display=l.owner===myPid?'':'none';
@@ -750,9 +754,17 @@ function renderWaitRoom() {
 }
 
 // ─── ФОРМА СОЗДАНИЯ ───────────────────────────────────
-let createBet=500, createMaxP=2, createMode='podkidnoy';
+let createBet=500, createMaxP=2, createMode='podkidnoy', createCurrency='coins';
+const USDT_BETS=[0.5,1,2,5,10];
 
-$('betSlider').oninput=function(){ createBet=this.value*500; $('betValue').textContent=createBet+' 🪙'; };
+$('betSlider').oninput=function(){
+  if(createCurrency==='usdt'){
+    createBet=USDT_BETS[Math.min(parseInt(this.value)-1,USDT_BETS.length-1)];
+    $('betValue').textContent='$'+createBet+' USDT';
+  } else {
+    createBet=this.value*500; $('betValue').textContent=createBet+' 🪙';
+  }
+};
 $('maxPlayersBtns').querySelectorAll('.pnum-btn').forEach(b=>{
   b.onclick=()=>{ createMaxP=+b.dataset.n; $('maxPlayersBtns').querySelectorAll('.pnum-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
 });
@@ -761,9 +773,9 @@ document.querySelectorAll('#create-screen .mode-btn').forEach(b=>{
 });
 
 $('btnConfirmCreate').onclick=()=>{
-  if (!ws||ws.readyState!==1) { connectWS(); setSt('Подключение...'); return; }
-  if (myCoins<createBet) { setSt('Недостаточно монет'); return; }
-  wsSend({type:'create_lobby', bet:createBet, max_p:createMaxP, mode:createMode});
+  if(!ws||ws.readyState!==1){connectWS();setSt('Подключение...');return;}
+  if(createCurrency==='coins'&&myCoins<createBet){setSt('Недостаточно монет');return;}
+  wsSend({type:'create_lobby',bet:createBet,max_p:createMaxP,mode:createMode,currency:createCurrency});
 };
 
 // ─── МУЛЬТИПЛЕЕР — РЕНДЕР ИГРЫ ───────────────────────
@@ -1146,9 +1158,23 @@ $('btnReturnGame').onclick=()=>{
   if(multiGame&&multiGame.state!=='finished'){showScreen('game');return;}
 };
 $('btnMulti').onclick=()=>{ if(!ws||ws.readyState!==1) connectWS(); showScreen('lobby'); };
+$('btnUSDT').onclick=()=>{
+  if(!ws||ws.readyState!==1) connectWS();
+  createCurrency='usdt'; $('create-title').textContent='Лобби на USDT';
+  $('betSlider').max=USDT_BETS.length; $('betSlider').value=1;
+  createBet=USDT_BETS[0]; $('betValue').textContent='$'+createBet+' USDT';
+  $('betRangeMin').textContent='$0.5'; $('betRangeMax').textContent='$10';
+  showScreen('create');
+};
+$('btnCreateLobby').onclick=()=>{
+  createCurrency='coins'; $('create-title').textContent='Новое лобби';
+  $('betSlider').max=10; $('betSlider').value=1;
+  createBet=500; $('betValue').textContent='500 🪙';
+  $('betRangeMin').textContent='500'; $('betRangeMax').textContent='5000';
+  showScreen('create');
+};
 $('btnRules').onclick=()=>alert('♠ Правила Дурака:\n\n1. Тапни карту — поднимется\n2. Тапни ещё раз — атака\n3. Защитник: выбери карту → тапни на столе\n\nОтбить: та же масть, карта старше или козырем.\n\nПереводной: положи карту того же ранга — перевод следующему игроку (3+ игрока).');
 $('btnLobbyBack').onclick=()=>showScreen('menu');
-$('btnCreateLobby').onclick=()=>showScreen('create');
 $('btnCreateBack').onclick=()=>showScreen('lobby');
 $('btnWaitBack').onclick=$('btnWaitLeave').onclick=()=>{ wsSend({type:'leave_lobby'}); curLobby=null; showScreen('lobby'); };
 $('btnStartGame').onclick=()=>wsSend({type:'start'});
