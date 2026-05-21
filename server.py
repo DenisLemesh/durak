@@ -93,12 +93,14 @@ class Lobby:
         self.mode = mode  # 'podkidnoy' | 'perevodoy'
         self.currency = currency  # 'coins' | 'usdt'
         self.players: List[str] = [owner]
+        self.ready: set = set()
         self.game: Optional['Game'] = None
         self.status = 'waiting'
 
     def info(self):
         return {'id': self.id, 'owner': self.owner, 'max_p': self.max_p,
                 'bet': self.bet, 'mode': self.mode, 'currency': self.currency, 'status': self.status,
+                'ready': list(self.ready),
                 'players': [{'id': p, 'name': pdb.get(p, {}).get('name', '?'),
                               'photo': pdb.get(p, {}).get('photo_url')} for p in self.players]}
 
@@ -194,6 +196,7 @@ async def remove_from_lobby(pid, refund=False):
     lb = player_lobby(pid)
     if not lb or lb.status != 'waiting': return
     lb.players.remove(pid)
+    lb.ready.discard(pid)
     if refund and lb.currency == 'coins': pdb[pid]['coins'] += lb.bet; _save(pdb)
     if not lb.players: del lobbies[lb.id]
     else:
@@ -287,11 +290,6 @@ async def _on_msg(pid, d):
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await lb.notify({'type': 'lobby_update', 'lobby': lb.info()})
         await broadcast_lobby_list()
-        if len(lb.players) >= lb.max_p and lb.status == 'waiting':
-            lb.status = 'playing'
-            lb.game = Game(lb)
-            await lb.game.push()
-            await broadcast_lobby_list()
 
     elif t == 'leave_lobby':
         await remove_from_lobby(pid, refund=True)
@@ -345,6 +343,17 @@ async def _on_msg(pid, d):
                 pdb[target]['friends'].remove(pid)
             _save(pdb)
         await send(pid, {'type': 'friends_update', 'friends': get_friends_view(pid)})
+
+    elif t == 'ready':
+        lb = player_lobby(pid)
+        if not lb or lb.status != 'waiting' or pid not in lb.players: return
+        lb.ready.add(pid)
+        await lb.notify({'type': 'lobby_update', 'lobby': lb.info()})
+        if len(lb.ready) >= len(lb.players) >= 2:
+            lb.status = 'playing'
+            lb.game = Game(lb)
+            await lb.game.push()
+            await broadcast_lobby_list()
 
     elif t == 'chat':
         text = str(d.get('msg', ''))[:200].strip()
