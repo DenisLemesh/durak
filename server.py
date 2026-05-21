@@ -620,6 +620,24 @@ async def end_game(g: Game):
 
 ADMIN_KEY = os.getenv('ADMIN_KEY', '')
 
+@app.get('/admin/add-coins')
+async def admin_add_coins(key: str = Query(default=''), game_id: str = Query(default=''), amount: int = Query(default=0)):
+    if not ADMIN_KEY or key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail='Forbidden')
+    game_id = game_id.upper()
+    pid = find_pid_by_short(game_id)
+    if not pid:
+        raise HTTPException(status_code=404, detail='Player not found')
+    pdb[pid]['coins'] = pdb[pid].get('coins', 0) + amount
+    _save(pdb)
+    if pid.startswith('tg_'):
+        try:
+            update_coins(int(pid[3:]), pdb[pid]['coins'])
+        except ValueError: pass
+    await send(pid, {'type': 'init_ok', 'pid': pid, 'me': {'id': pid, **pdb[pid]},
+                     'friends': [], 'lobbies': [], 'current_lobby': None})
+    return {'ok': True, 'pid': pid, 'coins': pdb[pid]['coins']}
+
 @app.get('/admin/users', response_class=HTMLResponse)
 async def admin_users(key: str = Query(default='')):
     if not ADMIN_KEY or key != ADMIN_KEY:
