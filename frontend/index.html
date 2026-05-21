@@ -110,7 +110,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table-area{position:absolute;inset:0;bottom:118px;display:flex;align-items:center;justify-content:center;padding-right:64px}
 .pairs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;max-width:290px}
 .pair{position:relative;width:66px;height:114px}
-.card{position:absolute;width:58px;height:84px;background:#fff;border-radius:9px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;padding:4px 5px;font-weight:700;border:1px solid rgba(0,0,0,.1);transition:transform .15s,box-shadow .15s;overflow:hidden}
+.card{position:absolute;width:58px;height:84px;background:#fff;border-radius:9px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;padding:4px 5px;font-weight:700;border:1px solid rgba(0,0,0,.1);transition:transform .1s,box-shadow .1s;overflow:hidden;will-change:transform;transform:translateZ(0)}
 .card.atk{top:0;left:0}.card.def{top:30px;left:8px;transform:rotate(8deg)}
 .card.rc{color:#c0392b}.card.bc{color:#1a1a1a}.card.tc{background:linear-gradient(135deg,#fffde7,#fff9c4)}
 .corner{display:flex;flex-direction:column;align-items:center;line-height:1.1}
@@ -128,15 +128,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .fab.transfer{background:#3498db;color:#fff}
 .hand-wrap{position:absolute;bottom:0;left:0;right:0;height:118px;background:linear-gradient(to top,rgba(0,0,0,.65),transparent);display:flex;align-items:flex-end;justify-content:center;padding-bottom:7px}
 .hand{position:relative;height:96px;display:flex;align-items:flex-end}
-.hcard{position:absolute;width:64px;height:92px;cursor:pointer;transform-origin:bottom center;transition:transform .22s cubic-bezier(.34,1.56,.64,1)}
+.hcard{position:absolute;width:64px;height:92px;cursor:pointer;transform-origin:bottom center;transition:transform .14s cubic-bezier(.34,1.56,.64,1);will-change:transform}
 .hcard:hover .card,.hcard.sel .card{transform:translateY(-20px)}
 .hcard.sel .card{outline:2.5px solid #f0b429}
 .hint-bar{padding:3px 12px 4px;background:rgba(0,0,0,.45);flex-shrink:0;text-align:center}
 .hint{font-size:10px;color:rgba(255,255,255,.38)}
-@keyframes atkIn{0%{opacity:0;transform:translateY(-60px) scale(.65) rotate(-12deg)}70%{transform:translateY(4px) scale(1.04) rotate(1deg)}100%{opacity:1;transform:translateY(0) scale(1) rotate(0)}}
-@keyframes defIn{0%{opacity:0;transform:rotate(-6deg) translateY(-30px)}100%{opacity:1;transform:rotate(8deg)}}
-.pair.deal-atk{animation:atkIn .35s cubic-bezier(.34,1.56,.64,1) both}
-.card.def.deal-def{animation:defIn .28s cubic-bezier(.34,1.56,.64,1) .05s both}
+@keyframes atkIn{0%{opacity:0;transform:translateY(-40px) scale(.75) rotate(-8deg)}100%{opacity:1;transform:translateY(0) scale(1) rotate(0)}}
+@keyframes defIn{0%{opacity:0;transform:rotate(-6deg) translateY(-20px)}100%{opacity:1;transform:rotate(8deg)}}
+.pair.deal-atk{animation:atkIn .2s ease-out both}
+.card.def.deal-def{animation:defIn .18s ease-out .03s both}
 .status{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:8px 18px;border-radius:50px;font-size:11px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:60;max-width:92%;text-align:center}
 .status.show{opacity:1}
 

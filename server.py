@@ -35,6 +35,9 @@ def _load():
 def _save(d):
     with open(DATA_FILE, 'w', encoding='utf-8') as f: json.dump(d, f, ensure_ascii=False)
 
+async def _save_async(d):
+    await asyncio.to_thread(_save, d)
+
 pdb: Dict[str, dict] = _load()
 conns: Dict[str, WebSocket] = {}
 lobbies: Dict[str, 'Lobby'] = {}
@@ -86,9 +89,10 @@ async def broadcast_lobby_list():
     msg = json.dumps({'type': 'lobby_list',
         'lobbies': [l.info() for l in lobbies.values() if l.status == 'waiting']
     }, ensure_ascii=False)
-    for ws in list(conns.values()):
+    async def _one(ws):
         try: await ws.send_text(msg)
         except: pass
+    await asyncio.gather(*[_one(ws) for ws in list(conns.values())])
 
 # ── Лобби ─────────────────────────────────────────────────────────────────
 class Lobby:
@@ -112,7 +116,13 @@ class Lobby:
                               'photo': pdb.get(p, {}).get('photo_url')} for p in self.players]}
 
     async def notify(self, msg):
-        for pid in self.players: await send(pid, msg)
+        data = json.dumps(msg, ensure_ascii=False)
+        async def _one(pid):
+            ws = conns.get(pid)
+            if ws:
+                try: await ws.send_text(data)
+                except: pass
+        await asyncio.gather(*[_one(pid) for pid in self.players])
 
 # ── Игра ──────────────────────────────────────────────────────────────────
 class Game:
@@ -194,11 +204,14 @@ class Game:
         }
 
     async def push(self):
-        for pid in self.all_pids:
+        views = {pid: json.dumps({'type': 'game', 'g': self.view(pid)}, ensure_ascii=False)
+                 for pid in self.all_pids}
+        async def _one(pid):
             ws = conns.get(pid)
             if ws:
-                try: await ws.send_text(json.dumps({'type': 'game', 'g': self.view(pid)}, ensure_ascii=False))
+                try: await ws.send_text(views[pid])
                 except: pass
+        await asyncio.gather(*[_one(pid) for pid in self.all_pids])
 
 # ── WebSocket ──────────────────────────────────────────────────────────────
 def player_lobby(pid) -> Optional[Lobby]:
@@ -213,7 +226,7 @@ async def remove_from_lobby(pid, refund=False):
     lb.ready.discard(pid)
     if refund:
         if lb.currency == 'coins':
-            pdb[pid]['coins'] += lb.bet; _save(pdb)
+            pdb[pid]['coins'] += lb.bet; await _save_async(pdb)
         elif lb.currency == 'usdt' and pid.startswith('tg_'):
             try:
                 tg_id = int(pid[3:])
@@ -245,7 +258,7 @@ async def ws_ep(ws: WebSocket):
                 pdb[pid]['game_id'] = gen_game_id()
             if raw.get('name'): pdb[pid]['name'] = raw['name'][:20]
             if raw.get('photo'): pdb[pid]['photo_url'] = raw['photo']
-        _save(pdb)
+        await _save_async(pdb)
         if pid.startswith('tg_'):
             try:
                 tg_id = int(pid[3:])
@@ -306,7 +319,7 @@ async def _on_msg(pid, d):
         await remove_from_lobby(pid)
         lb = Lobby(pid, max_p, bet, mode, currency)
         lobbies[lb.id] = lb
-        pdb[pid]['coins'] -= bet; _save(pdb)
+        pdb[pid]['coins'] -= bet; await _save_async(pdb)
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await broadcast_lobby_list()
 
@@ -335,7 +348,7 @@ async def _on_msg(pid, d):
             return await send(pid, {'type': 'err', 'msg': 'Недостаточно монет'})
         await remove_from_lobby(pid)
         lb.players.append(pid)
-        pdb[pid]['coins'] -= lb.bet; _save(pdb)
+        pdb[pid]['coins'] -= lb.bet; await _save_async(pdb)
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await lb.notify({'type': 'lobby_update', 'lobby': lb.info()})
         await broadcast_lobby_list()
@@ -362,7 +375,7 @@ async def _on_msg(pid, d):
         name = str(d.get('name', ''))[:20].strip()
         if name:
             pdb[pid]['name'] = name
-            _save(pdb)
+            await _save_async(pdb)
 
     elif t == 'add_friend':
         short_id = str(d.get('short_id', '')).strip().upper()
@@ -377,7 +390,7 @@ async def _on_msg(pid, d):
             pdb[pid]['friends'].append(target)
         if pid not in pdb[target]['friends']:
             pdb[target]['friends'].append(pid)
-        _save(pdb)
+        await _save_async(pdb)
         await send(pid, {'type': 'friends_update', 'friends': get_friends_view(pid)})
         await send(target, {'type': 'friends_update', 'friends': get_friends_view(target)})
 
@@ -390,7 +403,7 @@ async def _on_msg(pid, d):
                 pdb[pid]['friends'].remove(target)
             if pid in pdb[target]['friends']:
                 pdb[target]['friends'].remove(pid)
-            _save(pdb)
+            await _save_async(pdb)
         await send(pid, {'type': 'friends_update', 'friends': get_friends_view(pid)})
 
     elif t == 'ready':
@@ -577,7 +590,7 @@ async def end_game(g: Game):
                             f'{g.lobby_id}_{p}_draw', 'Ничья в Дурак — возврат 🃏'))
                     except Exception as e:
                         print(f'[CryptoBot] draw refund error {p}: {e}')
-        _save(pdb)
+        await _save_async(pdb)
         lb.status = 'finished'
         await g.push()
         lobbies.pop(g.lobby_id, None)
@@ -613,7 +626,7 @@ async def end_game(g: Game):
                     increment_stats(tg_id, won=False)
                     update_coins(tg_id, pdb[p]['coins'])
                 except ValueError: pass
-    _save(pdb)
+    await _save_async(pdb)
     lb.status = 'finished'
     await g.push()
     lobbies.pop(g.lobby_id, None)
@@ -629,7 +642,7 @@ async def admin_add_coins(key: str = Query(default=''), game_id: str = Query(def
     if not pid:
         raise HTTPException(status_code=404, detail='Player not found')
     pdb[pid]['coins'] = pdb[pid].get('coins', 0) + amount
-    _save(pdb)
+    await _save_async(pdb)
     if pid.startswith('tg_'):
         try:
             update_coins(int(pid[3:]), pdb[pid]['coins'])
