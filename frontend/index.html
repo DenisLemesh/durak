@@ -932,8 +932,13 @@ function renderMFab(g) {
       if (g.mode==='perevodoy'&&!g.table.some(p=>p.def))
         mk('transfer','⇄ Перевести',mTransfer);
       $('hint').textContent=multiSel?'Тапни атакующую карту на столе':'Выбери карту из руки → тапни на столе';
+    } else if (g.mode==='podkidnoy') {
+      if (multiSel) {
+        mk('ok','Подкинуть ✓',()=>{wsSend({type:'act',act:'atk',cid:multiSel});multiSel=null;});
+      }
+      $('hint').textContent=multiSel?'Нажми "Подкинуть ✓" или выбери другую карту':'Можно подкинуть карту того же ранга';
     } else {
-      $('hint').textContent=isAtk?'Ожидайте — защитник отбивается...':'Защитник отбивается...';
+      $('hint').textContent='Защитник отбивается...';
     }
   }
 }
