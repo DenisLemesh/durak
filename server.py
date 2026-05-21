@@ -129,6 +129,8 @@ class Game:
         self.ai = 0       # attacker index
         self.di = 1 % n   # defender index
         self.mode = lobby.mode
+        self.currency = lobby.currency
+        self.bet = lobby.bet
         self.state = 'attack'   # 'attack' | 'defense' | 'finished'
         self.table: list = []   # [{atk, def}]
         self.beaten_out: List[str] = []
@@ -178,6 +180,7 @@ class Game:
             'state': self.state, 'mode': self.mode,
             'beaten_out': self.beaten_out, 'durak': self.durak,
             'lobby_id': self.lobby_id,
+            'currency': self.currency, 'bet': self.bet,
             'players': [{'id': p, 'name': pdb.get(p, {}).get('name', '?'),
                           'photo': pdb.get(p, {}).get('photo_url'),
                           'coins': pdb.get(p, {}).get('coins', 0),

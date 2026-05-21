@@ -964,8 +964,18 @@ function showMultiResult(g) {
   $('resT').textContent=isDraw?'Ничья!':isDurak?'Дурак!':'Победа!';
   const dName=g.players.find(p=>p.id===g.durak)?.name||'?';
   $('resS').textContent=isDraw?'Оба вышли одновременно':isDurak?'Вы остались в дураках!':dName+' — дурак!';
-  $('resCoins').textContent=me.coins!=null?'🪙 '+me.coins:'';
-  if (me.coins!=null) setCoins(me.coins);
+  if (g.currency==='usdt') {
+    const pot=g.bet*g.players.length;
+    const payout=+(pot*0.9).toFixed(2);
+    const winners=g.players.filter(p=>p.id!==g.durak);
+    const perWinner=+(payout/Math.max(winners.length,1)).toFixed(2);
+    if (isDraw) $('resCoins').textContent='💵 $'+g.bet+' USDT — возврат';
+    else if (!isDurak) $('resCoins').textContent='💵 +$'+perWinner+' USDT';
+    else $('resCoins').textContent='💵 -$'+g.bet+' USDT';
+  } else {
+    $('resCoins').textContent=me.coins!=null?'🪙 '+me.coins:'';
+    if (me.coins!=null) setCoins(me.coins);
+  }
   multiGame=null; curLobby=null; multiSel=null; prevMTable=[];
   $('btnAgain').onclick=()=>showScreen('lobby');
   $('btnMenu3').onclick=()=>showScreen('menu');
