@@ -212,7 +212,7 @@ async def remove_from_lobby(pid, refund=False):
                 tg_id = int(pid[3:])
                 spend_id = f'refund_{lb.id}_{pid}'
                 asyncio.create_task(
-                    cryptopay.transfer(tg_id, lb.bet, spend_id, 'Возврат ставки — Дурак 🃏'))
+                    _safe_transfer(tg_id, lb.bet, spend_id, 'Возврат ставки — Дурак 🃏'))
             except Exception as e:
                 print(f'[CryptoBot] refund error pid={pid}: {e}')
     if not lb.players: del lobbies[lb.id]
@@ -512,6 +512,19 @@ async def do_act(pid, g: Game, d):
         g.state = 'finished'
         await end_game(g)
 
+async def _safe_transfer(tg_id: int, amount: float, spend_id: str, comment: str):
+    for attempt in range(3):
+        try:
+            await cryptopay.transfer(tg_id, amount, spend_id, comment)
+            print(f'[CryptoBot] transfer OK tg_id={tg_id} amount={amount} spend_id={spend_id}')
+            return
+        except Exception as e:
+            print(f'[CryptoBot] transfer attempt {attempt+1}/3 FAILED tg_id={tg_id} amount={amount} spend_id={spend_id} err={e}')
+            if attempt < 2:
+                await asyncio.sleep(5)
+    print(f'[CryptoBot] transfer GAVE UP tg_id={tg_id} amount={amount} spend_id={spend_id}')
+
+
 async def end_game(g: Game):
     lb = lobbies.get(g.lobby_id)
     if not lb: return
@@ -531,7 +544,7 @@ async def end_game(g: Game):
                     try:
                         tg_id = int(w[3:])
                         increment_stats(tg_id, won=True)
-                        asyncio.create_task(cryptopay.transfer(
+                        asyncio.create_task(_safe_transfer(
                             tg_id, per_winner,
                             f'{g.lobby_id}_{w}_win', 'Выигрыш в Дурак 🃏'))
                     except Exception as e:
@@ -542,7 +555,7 @@ async def end_game(g: Game):
                     increment_stats(int(g.durak[3:]), won=False)
                 except ValueError: pass
             if cryptopay.COMMISSION_TG_ID and commission >= 0.01:
-                asyncio.create_task(cryptopay.transfer(
+                asyncio.create_task(_safe_transfer(
                     cryptopay.COMMISSION_TG_ID, commission,
                     f'{g.lobby_id}_commission', 'Комиссия Дурак'))
         else:
@@ -552,7 +565,7 @@ async def end_game(g: Game):
                     try:
                         tg_id = int(p[3:])
                         increment_stats(tg_id, won=False)
-                        asyncio.create_task(cryptopay.transfer(
+                        asyncio.create_task(_safe_transfer(
                             tg_id, lb.bet,
                             f'{g.lobby_id}_{p}_draw', 'Ничья в Дурак — возврат 🃏'))
                     except Exception as e:
@@ -704,7 +717,7 @@ async def _process_usdt_payment(pending: dict):
             if pid.startswith('tg_'):
                 try:
                     tg_id = int(pid[3:])
-                    asyncio.create_task(cryptopay.transfer(
+                    asyncio.create_task(_safe_transfer(
                         tg_id, pending['amount'],
                         f'refund_join_{lobby_id}_{pid}',
                         'Возврат — лобби недоступно'))
