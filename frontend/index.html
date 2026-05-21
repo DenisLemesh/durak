@@ -58,7 +58,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .players-btns{display:flex;gap:6px;flex-wrap:wrap}
 .pnum-btn{width:40px;height:40px;border-radius:10px;border:1.5px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
 .pnum-btn.active{border-color:#f0b429;background:rgba(240,180,41,.15);color:#f0b429}
-.create-footer{padding:14px 16px;flex-shrink:0;width:100%}
+.create-join-btn{background:linear-gradient(135deg,#26a17b,#1a7a5e);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;padding:10px 16px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:transform .12s}
+.create-join-btn:active{transform:scale(.95)}
+.create-join-btn.coins{background:linear-gradient(135deg,#f0b429,#d47800);color:#1a1a1a}
+.create-lobby-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px 14px;margin-bottom:8px}
 
 /* wait */
 .wait-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;overflow-y:auto;width:100%}
@@ -399,9 +402,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button class="mode-btn" data-mode="perevodoy">⇄ Переводной<br><span style="font-size:10px;font-weight:400;opacity:.7">Можно переводить</span></button>
       </div>
     </div>
-  </div>
-  <div class="create-footer">
-    <button class="mbtn gold" style="width:100%" id="btnConfirmCreate">Создать лобби</button>
+    <button class="mbtn gold" style="width:100%;margin-top:4px" id="btnConfirmCreate">Создать лобби</button>
+    <div style="margin-top:24px">
+      <div class="form-label" style="margin-bottom:10px">Открытые лобби</div>
+      <div id="createLobbyItems"></div>
+    </div>
   </div>
 </div>
 
@@ -709,8 +714,24 @@ function onWSMsg(d) {
 }
 
 // ─── ЛОББИ ───────────────────────────────────────────
+function renderCreateLobbies() {
+  const el=$('createLobbyItems'); if(!el) return;
+  const filtered=cachedLobbies.filter(l=>(l.currency||'coins')===createCurrency);
+  if(!filtered.length){el.innerHTML='<div class="empty-lobbies" style="padding:16px 0;font-size:12px">Нет открытых лобби</div>';return;}
+  el.innerHTML=filtered.map(l=>`
+    <div class="create-lobby-row">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:${l.currency==='usdt'?'#26a17b':'#f0b429'}">${l.currency==='usdt'?'💵 $'+l.bet:'🪙 '+l.bet}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:3px">${l.players.length}/${l.max_p} · ${l.mode==='perevodoy'?'Переводной':'Подкидной'}</div>
+        <div style="display:flex;gap:4px;margin-top:6px">${l.players.map(p=>`<div class="mini-av">${p.photo?`<img src="${p.photo}">`:(p.name||'?')[0].toUpperCase()}</div>`).join('')}</div>
+      </div>
+      <button class="create-join-btn${l.currency!=='usdt'?' coins':''}" onclick="doJoinLobby('${l.id}')">Войти →</button>
+    </div>`).join('');
+}
+
 function renderLobbyList(list) {
   cachedLobbies=list;
+  renderCreateLobbies();
   const el=$('lobbyList');
   if (!list.length) { el.innerHTML='<div class="empty-lobbies">Нет открытых лобби</div>'; return; }
   el.innerHTML=list.map(l=>`
@@ -1164,14 +1185,14 @@ $('btnUSDT').onclick=()=>{
   $('betSlider').max=USDT_BETS.length; $('betSlider').value=1;
   createBet=USDT_BETS[0]; $('betValue').textContent='$'+createBet+' USDT';
   $('betRangeMin').textContent='$0.5'; $('betRangeMax').textContent='$10';
-  showScreen('create');
+  showScreen('create'); renderCreateLobbies();
 };
 $('btnCreateLobby').onclick=()=>{
   createCurrency='coins'; $('create-title').textContent='Новое лобби';
   $('betSlider').max=10; $('betSlider').value=1;
   createBet=500; $('betValue').textContent='500 🪙';
   $('betRangeMin').textContent='500'; $('betRangeMax').textContent='5000';
-  showScreen('create');
+  showScreen('create'); renderCreateLobbies();
 };
 $('btnRules').onclick=()=>alert('♠ Правила Дурака:\n\n1. Тапни карту — поднимется\n2. Тапни ещё раз — атака\n3. Защитник: выбери карту → тапни на столе\n\nОтбить: та же масть, карта старше или козырем.\n\nПереводной: положи карту того же ранга — перевод следующему игроку (3+ игрока).');
 $('btnLobbyBack').onclick=()=>showScreen('menu');
