@@ -639,7 +639,7 @@ function shakeHand(){const s=document.querySelector('.hcard.sel');if(!s)return;s
 
 // ─── WEBSOCKET ────────────────────────────────────────
 let ws=null, myPid=null, myCoins=0, curLobby=null, multiGame=null, multiSel=null, myFriends=[];
-let cachedLobbies=[];
+let cachedLobbies=[], leavingUsdt=false;
 
 function getPid() {
   const tgId=tgUser?.id;
@@ -693,7 +693,15 @@ function onWSMsg(d) {
       if (!$('wait-screen').classList.contains('off')) renderWaitRoom();
       break;
     case 'lobby_left':
-      curLobby=null; setCoins(d.me.coins); showScreen('lobby');
+      curLobby=null; setCoins(d.me.coins);
+      if(leavingUsdt){
+        leavingUsdt=false;
+        createCurrency='usdt'; $('create-title').textContent='Лобби на USDT';
+        $('betSlider').max=USDT_BETS.length; $('betSlider').value=1;
+        createBet=USDT_BETS[0]; $('betValue').textContent='$'+createBet+' USDT';
+        $('betRangeMin').textContent='$0.5'; $('betRangeMax').textContent='$10';
+        showScreen('create'); renderCreateLobbies();
+      } else { showScreen('lobby'); }
       break;
     case 'game':
       multiGame=d.g; renderMultiGame();
@@ -1198,17 +1206,8 @@ $('btnRules').onclick=()=>alert('♠ Правила Дурака:\n\n1. Тапн
 $('btnLobbyBack').onclick=()=>showScreen('menu');
 $('btnCreateBack').onclick=()=>createCurrency==='usdt'?showScreen('menu'):showScreen('lobby');
 $('btnWaitBack').onclick=$('btnWaitLeave').onclick=()=>{
-  const isUsdt=curLobby?.currency==='usdt';
+  leavingUsdt=curLobby?.currency==='usdt';
   wsSend({type:'leave_lobby'}); curLobby=null;
-  if(isUsdt){
-    createCurrency='usdt'; $('create-title').textContent='Лобби на USDT';
-    $('betSlider').max=USDT_BETS.length; $('betSlider').value=1;
-    createBet=USDT_BETS[0]; $('betValue').textContent='$'+createBet+' USDT';
-    $('betRangeMin').textContent='$0.5'; $('betRangeMax').textContent='$10';
-    showScreen('create'); renderCreateLobbies();
-  } else {
-    showScreen('lobby');
-  }
 };
 $('btnStartGame').onclick=()=>wsSend({type:'start'});
 
