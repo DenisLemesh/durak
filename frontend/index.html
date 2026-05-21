@@ -1197,7 +1197,19 @@ $('btnCreateLobby').onclick=()=>{
 $('btnRules').onclick=()=>alert('♠ Правила Дурака:\n\n1. Тапни карту — поднимется\n2. Тапни ещё раз — атака\n3. Защитник: выбери карту → тапни на столе\n\nОтбить: та же масть, карта старше или козырем.\n\nПереводной: положи карту того же ранга — перевод следующему игроку (3+ игрока).');
 $('btnLobbyBack').onclick=()=>showScreen('menu');
 $('btnCreateBack').onclick=()=>createCurrency==='usdt'?showScreen('menu'):showScreen('lobby');
-$('btnWaitBack').onclick=$('btnWaitLeave').onclick=()=>{ wsSend({type:'leave_lobby'}); curLobby=null; showScreen('lobby'); };
+$('btnWaitBack').onclick=$('btnWaitLeave').onclick=()=>{
+  const isUsdt=curLobby?.currency==='usdt';
+  wsSend({type:'leave_lobby'}); curLobby=null;
+  if(isUsdt){
+    createCurrency='usdt'; $('create-title').textContent='Лобби на USDT';
+    $('betSlider').max=USDT_BETS.length; $('betSlider').value=1;
+    createBet=USDT_BETS[0]; $('betValue').textContent='$'+createBet+' USDT';
+    $('betRangeMin').textContent='$0.5'; $('betRangeMax').textContent='$10';
+    showScreen('create'); renderCreateLobbies();
+  } else {
+    showScreen('lobby');
+  }
+};
 $('btnStartGame').onclick=()=>wsSend({type:'start'});
 
 // ─── ПРОФИЛЬ ─────────────────────────────────────────
