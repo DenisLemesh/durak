@@ -144,7 +144,10 @@ class Game:
             if self.ai > idx: self.ai -= 1
             if self.di > idx: self.di -= 1
             n = len(self.pids)
-            if n: self.ai %= n; self.di %= n
+            if n:
+                self.ai %= n; self.di %= n
+                if n > 1 and self.ai == self.di:
+                    self.di = (self.di + 1) % n
         if len(self.pids) <= 1:
             self.durak = self.pids[0] if self.pids else None
             self.state = 'finished'
