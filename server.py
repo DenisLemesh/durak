@@ -2,14 +2,20 @@
 server.py — FastAPI WebSocket сервер Дурак
 Запуск: python server.py
 """
-import json, os, random, string, uuid
+import asyncio
+import json
+import os
+import random
+import string
+import uuid
 from typing import Dict, List, Optional
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from database import upsert_user, increment_stats, update_coins, get_all_users
+import cryptopay
 
 app = FastAPI()
 
@@ -32,6 +38,7 @@ def _save(d):
 pdb: Dict[str, dict] = _load()
 conns: Dict[str, WebSocket] = {}
 lobbies: Dict[str, 'Lobby'] = {}
+pending_usdt: Dict[str, dict] = {}  # invoice_id -> {pid, action, ...}
 
 # ── утилиты ───────────────────────────────────────────────────────────────
 def can_beat(a, d, tr):
@@ -197,7 +204,17 @@ async def remove_from_lobby(pid, refund=False):
     if not lb or lb.status != 'waiting': return
     lb.players.remove(pid)
     lb.ready.discard(pid)
-    if refund and lb.currency == 'coins': pdb[pid]['coins'] += lb.bet; _save(pdb)
+    if refund:
+        if lb.currency == 'coins':
+            pdb[pid]['coins'] += lb.bet; _save(pdb)
+        elif lb.currency == 'usdt' and pid.startswith('tg_'):
+            try:
+                tg_id = int(pid[3:])
+                spend_id = f'refund_{lb.id}_{pid}'
+                asyncio.create_task(
+                    cryptopay.transfer(tg_id, lb.bet, spend_id, 'Возврат ставки — Дурак 🃏'))
+            except Exception as e:
+                print(f'[CryptoBot] refund error pid={pid}: {e}')
     if not lb.players: del lobbies[lb.id]
     else:
         if lb.owner == pid: lb.owner = lb.players[0]
@@ -229,10 +246,12 @@ async def ws_ep(ws: WebSocket):
                 update_coins(tg_id, pdb[pid].get('coins', INITIAL_COINS))
             except ValueError:
                 pass
+        current_lb = player_lobby(pid)
         await ws.send_text(json.dumps({'type': 'init_ok', 'pid': pid,
             'me': {'id': pid, **pdb[pid]},
             'friends': get_friends_view(pid),
-            'lobbies': [l.info() for l in lobbies.values() if l.status == 'waiting']
+            'lobbies': [l.info() for l in lobbies.values() if l.status == 'waiting'],
+            'current_lobby': current_lb.info() if current_lb else None,
         }, ensure_ascii=False))
         while True: await on_msg(pid, json.loads(await ws.receive_text()))
     except WebSocketDisconnect: pass
@@ -255,12 +274,23 @@ async def _on_msg(pid, d):
         mode = d.get('mode', 'podkidnoy')
         if currency == 'usdt':
             try:
-                bet = float(d.get('bet', 0.5))
+                bet = max(1, min(10, int(float(d.get('bet', 1)))))
             except (ValueError, TypeError):
-                bet = 0.5
-            valid = [0.5, 1, 2, 5, 10]
-            if bet not in valid:
-                bet = min(valid, key=lambda x: abs(x - bet))
+                bet = 1
+            payload = json.dumps({'pid': pid, 'action': 'create',
+                                  'params': {'max_p': max_p, 'bet': bet, 'mode': mode}})
+            try:
+                invoice = await cryptopay.create_invoice(bet, payload)
+            except Exception as e:
+                print(f'[CryptoBot] create_invoice error: {e}')
+                return await send(pid, {'type': 'err', 'msg': 'Ошибка платежа, попробуйте позже'})
+            pending_usdt[str(invoice['invoice_id'])] = {
+                'pid': pid, 'action': 'create',
+                'params': {'max_p': max_p, 'bet': bet, 'mode': mode},
+                'amount': bet,
+            }
+            return await send(pid, {'type': 'payment_required',
+                                    'invoice_url': invoice['pay_url'], 'amount': bet})
         else:
             currency = 'coins'
             bet = max(500, min(5000, (int(d.get('bet', 500)) // 500) * 500))
@@ -269,8 +299,7 @@ async def _on_msg(pid, d):
         await remove_from_lobby(pid)
         lb = Lobby(pid, max_p, bet, mode, currency)
         lobbies[lb.id] = lb
-        if currency == 'coins':
-            pdb[pid]['coins'] -= bet; _save(pdb)
+        pdb[pid]['coins'] -= bet; _save(pdb)
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await broadcast_lobby_list()
 
@@ -281,12 +310,25 @@ async def _on_msg(pid, d):
         if pid in lb.players: return
         if len(lb.players) >= lb.max_p:
             return await send(pid, {'type': 'err', 'msg': 'Лобби полное'})
-        if lb.currency == 'coins' and pdb[pid]['coins'] < lb.bet:
+        if lb.currency == 'usdt':
+            payload = json.dumps({'pid': pid, 'action': 'join',
+                                  'lobby_id': lb.id, 'amount': lb.bet})
+            try:
+                invoice = await cryptopay.create_invoice(lb.bet, payload)
+            except Exception as e:
+                print(f'[CryptoBot] join invoice error: {e}')
+                return await send(pid, {'type': 'err', 'msg': 'Ошибка платежа, попробуйте позже'})
+            pending_usdt[str(invoice['invoice_id'])] = {
+                'pid': pid, 'action': 'join',
+                'lobby_id': lb.id, 'amount': lb.bet,
+            }
+            return await send(pid, {'type': 'payment_required',
+                                    'invoice_url': invoice['pay_url'], 'amount': lb.bet})
+        if pdb[pid]['coins'] < lb.bet:
             return await send(pid, {'type': 'err', 'msg': 'Недостаточно монет'})
         await remove_from_lobby(pid)
         lb.players.append(pid)
-        if lb.currency == 'coins':
-            pdb[pid]['coins'] -= lb.bet; _save(pdb)
+        pdb[pid]['coins'] -= lb.bet; _save(pdb)
         await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(), 'me': {'id': pid, **pdb[pid]}})
         await lb.notify({'type': 'lobby_update', 'lobby': lb.info()})
         await broadcast_lobby_list()
@@ -475,36 +517,81 @@ async def end_game(g: Game):
     if not lb: return
     is_usdt = lb.currency == 'usdt'
     pot = lb.bet * len(g.all_pids)
+
+    if is_usdt:
+        commission = round(pot * cryptopay.COMMISSION_RATE, 2)
+        payout = round(pot - commission, 2)
+        if g.durak:
+            winners = [p for p in g.all_pids if p != g.durak]
+            per_winner = round(payout / len(winners), 2) if winners else 0
+            for w in winners:
+                pdb[w].setdefault('games', 0); pdb[w]['games'] += 1
+                pdb[w].setdefault('wins', 0);  pdb[w]['wins']  += 1
+                if w.startswith('tg_'):
+                    try:
+                        tg_id = int(w[3:])
+                        increment_stats(tg_id, won=True)
+                        asyncio.create_task(cryptopay.transfer(
+                            tg_id, per_winner,
+                            f'{g.lobby_id}_{w}_win', 'Выигрыш в Дурак 🃏'))
+                    except Exception as e:
+                        print(f'[CryptoBot] payout error {w}: {e}')
+            pdb[g.durak].setdefault('games', 0); pdb[g.durak]['games'] += 1
+            if g.durak.startswith('tg_'):
+                try:
+                    increment_stats(int(g.durak[3:]), won=False)
+                except ValueError: pass
+            if cryptopay.COMMISSION_TG_ID and commission >= 0.01:
+                asyncio.create_task(cryptopay.transfer(
+                    cryptopay.COMMISSION_TG_ID, commission,
+                    f'{g.lobby_id}_commission', 'Комиссия Дурак'))
+        else:
+            for p in g.all_pids:
+                pdb[p].setdefault('games', 0); pdb[p]['games'] += 1
+                if p.startswith('tg_'):
+                    try:
+                        tg_id = int(p[3:])
+                        increment_stats(tg_id, won=False)
+                        asyncio.create_task(cryptopay.transfer(
+                            tg_id, lb.bet,
+                            f'{g.lobby_id}_{p}_draw', 'Ничья в Дурак — возврат 🃏'))
+                    except Exception as e:
+                        print(f'[CryptoBot] draw refund error {p}: {e}')
+        _save(pdb)
+        lb.status = 'finished'
+        await g.push()
+        lobbies.pop(g.lobby_id, None)
+        return
+
+    # ── Coins game ──
     if g.durak:
         winners = [p for p in g.all_pids if p != g.durak]
         for w in winners:
-            if not is_usdt:
-                pdb[w]['coins'] += int(pot // len(winners))
+            pdb[w]['coins'] += int(pot // len(winners))
             pdb[w].setdefault('games', 0); pdb[w]['games'] += 1
             pdb[w].setdefault('wins', 0);  pdb[w]['wins']  += 1
             if w.startswith('tg_'):
                 try:
                     tg_id = int(w[3:])
                     increment_stats(tg_id, won=True)
-                    if not is_usdt: update_coins(tg_id, pdb[w]['coins'])
+                    update_coins(tg_id, pdb[w]['coins'])
                 except ValueError: pass
         pdb[g.durak].setdefault('games', 0); pdb[g.durak]['games'] += 1
         if g.durak.startswith('tg_'):
             try:
                 tg_id = int(g.durak[3:])
                 increment_stats(tg_id, won=False)
-                if not is_usdt: update_coins(tg_id, pdb[g.durak]['coins'])
+                update_coins(tg_id, pdb[g.durak]['coins'])
             except ValueError: pass
     else:
         for p in g.all_pids:
-            if not is_usdt:
-                pdb[p]['coins'] += lb.bet
+            pdb[p]['coins'] += lb.bet
             pdb[p].setdefault('games', 0); pdb[p]['games'] += 1
             if p.startswith('tg_'):
                 try:
                     tg_id = int(p[3:])
                     increment_stats(tg_id, won=False)
-                    if not is_usdt: update_coins(tg_id, pdb[p]['coins'])
+                    update_coins(tg_id, pdb[p]['coins'])
                 except ValueError: pass
     _save(pdb)
     lb.status = 'finished'
@@ -576,6 +663,64 @@ async def admin_users(key: str = Query(default='')):
 </table>
 </body></html>'''
     return HTMLResponse(html)
+
+@app.post('/cryptopay/webhook')
+async def cryptopay_webhook(request: Request):
+    body = await request.body()
+    sig = request.headers.get('crypto-pay-api-signature', '')
+    if not cryptopay.verify_webhook(body, sig):
+        return JSONResponse({'ok': False}, status_code=401)
+    try:
+        data = json.loads(body)
+    except Exception:
+        return JSONResponse({'ok': False}, status_code=400)
+    if data.get('update_type') == 'invoice_paid':
+        invoice = data.get('payload', {})
+        invoice_id = str(invoice.get('invoice_id', ''))
+        pending = pending_usdt.pop(invoice_id, None)
+        if pending:
+            asyncio.create_task(_process_usdt_payment(pending))
+    return JSONResponse({'ok': True})
+
+
+async def _process_usdt_payment(pending: dict):
+    pid = pending['pid']
+    action = pending['action']
+    if pid not in pdb:
+        print(f'[CryptoBot] unknown pid={pid} after payment')
+        return
+    if action == 'create':
+        p = pending['params']
+        await remove_from_lobby(pid)
+        lb = Lobby(pid, p['max_p'], p['bet'], p['mode'], 'usdt')
+        lobbies[lb.id] = lb
+        await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(),
+                         'me': {'id': pid, **pdb[pid]}})
+        await broadcast_lobby_list()
+    elif action == 'join':
+        lobby_id = pending.get('lobby_id')
+        lb = lobbies.get(lobby_id)
+        if not lb or lb.status != 'waiting' or len(lb.players) >= lb.max_p:
+            if pid.startswith('tg_'):
+                try:
+                    tg_id = int(pid[3:])
+                    asyncio.create_task(cryptopay.transfer(
+                        tg_id, pending['amount'],
+                        f'refund_join_{lobby_id}_{pid}',
+                        'Возврат — лобби недоступно'))
+                except Exception as e:
+                    print(f'[CryptoBot] join refund error: {e}')
+            await send(pid, {'type': 'err', 'msg': 'Лобби недоступно, средства возвращены'})
+            return
+        if pid in lb.players:
+            return
+        await remove_from_lobby(pid)
+        lb.players.append(pid)
+        await send(pid, {'type': 'lobby_joined', 'lobby': lb.info(),
+                         'me': {'id': pid, **pdb[pid]}})
+        await lb.notify({'type': 'lobby_update', 'lobby': lb.info()})
+        await broadcast_lobby_list()
+
 
 app.mount('/', StaticFiles(directory='frontend', html=True), name='static')
 

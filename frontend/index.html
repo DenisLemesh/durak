@@ -272,6 +272,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .name-edit-input{width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.2);border-radius:12px;padding:12px 14px;color:#fff;font-size:14px;outline:none;margin-bottom:14px;text-align:center}
 .name-edit-input:focus{border-color:#f0b429}
 .name-edit-row{display:flex;gap:10px}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 </style>
 </head>
 <body>
@@ -598,6 +599,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- PAYMENT OVERLAY -->
+<div id="paymentOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;flex-direction:column;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(8px)">
+  <div style="background:linear-gradient(170deg,#0a1a2e,#071020);border:1px solid rgba(38,161,123,.35);border-radius:24px;padding:28px 24px;width:100%;max-width:320px;text-align:center">
+    <div style="font-size:44px;margin-bottom:12px">💵</div>
+    <div style="font-size:24px;font-weight:800;color:#26a17b;margin-bottom:6px">$<span id="payAmountVal"></span> USDT</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px">Оплатите ставку для входа в лобби</div>
+    <button id="btnPayNow" style="width:100%;padding:14px;background:linear-gradient(135deg,#26a17b,#1a7a5e);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;letter-spacing:.3px">💳 Оплатить через CryptoBot</button>
+    <div id="payWaiting" style="display:none;color:rgba(255,255,255,.5);font-size:13px;padding:10px 0 8px;animation:pulse 1.5s ease-in-out infinite">⏳ Ожидаю подтверждения оплаты...</div>
+    <button id="btnPayCancel" style="width:100%;padding:11px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:14px;color:rgba(255,255,255,.6);font-size:13px;font-weight:600;cursor:pointer">Отмена</button>
+    <div style="margin-top:14px;font-size:10px;color:rgba(255,255,255,.25)">Тестовая сеть · @CryptoTestnetBot</div>
+  </div>
+</div>
+
 </div><!-- #app -->
 <script>
 // ─── TELEGRAM ────────────────────────────────────────
@@ -644,7 +658,7 @@ function shakeHand(){const s=document.querySelector('.hcard.sel');if(!s)return;s
 
 // ─── WEBSOCKET ────────────────────────────────────────
 let ws=null, myPid=null, myCoins=0, curLobby=null, multiGame=null, multiSel=null, myFriends=[];
-let cachedLobbies=[], leavingUsdt=false;
+let cachedLobbies=[], leavingUsdt=false, pendingInvoiceUrl=null;
 
 function getPid() {
   const tgId=tgUser?.id;
@@ -686,11 +700,21 @@ function onWSMsg(d) {
       myFriends=d.friends||[]; updateFriendsBadge();
       renderLobbyList(d.lobbies||[]);
       updateProfileBtn();
+      if (d.current_lobby) { curLobby=d.current_lobby; showWaitScreen(); }
       break;
     case 'lobby_list':
       renderLobbyList(d.lobbies||[]);
       break;
+    case 'payment_required':
+      pendingInvoiceUrl=d.invoice_url;
+      $('payAmountVal').textContent=d.amount;
+      $('payWaiting').style.display='none';
+      $('btnPayNow').style.display='block';
+      $('paymentOverlay').style.display='flex';
+      break;
     case 'lobby_joined':
+      $('paymentOverlay').style.display='none';
+      pendingInvoiceUrl=null;
       curLobby=d.lobby; setCoins(d.me.coins); showWaitScreen();
       break;
     case 'lobby_update':
@@ -1409,6 +1433,19 @@ $('chatSendBtn').onclick=$('chatInput').onkeydown=function(e){
 })();
 
 updateProfileBtn();
+
+$('btnPayNow').onclick=()=>{
+  if(!pendingInvoiceUrl) return;
+  $('btnPayNow').style.display='none';
+  $('payWaiting').style.display='block';
+  if(tg?.openTelegramLink) tg.openTelegramLink(pendingInvoiceUrl);
+  else window.open(pendingInvoiceUrl,'_blank');
+};
+$('btnPayCancel').onclick=()=>{
+  $('paymentOverlay').style.display='none';
+  pendingInvoiceUrl=null;
+};
+
 connectWS();
 </script>
 </body>
