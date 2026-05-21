@@ -1196,7 +1196,7 @@ $('btnCreateLobby').onclick=()=>{
 };
 $('btnRules').onclick=()=>alert('♠ Правила Дурака:\n\n1. Тапни карту — поднимется\n2. Тапни ещё раз — атака\n3. Защитник: выбери карту → тапни на столе\n\nОтбить: та же масть, карта старше или козырем.\n\nПереводной: положи карту того же ранга — перевод следующему игроку (3+ игрока).');
 $('btnLobbyBack').onclick=()=>showScreen('menu');
-$('btnCreateBack').onclick=()=>showScreen('lobby');
+$('btnCreateBack').onclick=()=>createCurrency==='usdt'?showScreen('menu'):showScreen('lobby');
 $('btnWaitBack').onclick=$('btnWaitLeave').onclick=()=>{ wsSend({type:'leave_lobby'}); curLobby=null; showScreen('lobby'); };
 $('btnStartGame').onclick=()=>wsSend({type:'start'});
 
